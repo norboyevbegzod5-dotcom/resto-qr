@@ -78,7 +78,11 @@ export default function CampaignsPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const data = { ...form };
+    const data = {
+      ...form,
+      startDate: new Date(form.startDate).toISOString(),
+      endDate: new Date(form.endDate).toISOString(),
+    };
     if (editId) {
       updateMutation.mutate({ id: editId, data });
     } else {
