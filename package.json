@@ -6,10 +6,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "postinstall": "cd backend && npm install && cd ../admin && npm install",
-    "build:admin": "cd admin && npm run build",
-    "build:backend": "cd backend && npx prisma generate && npm run build",
-    "build": "npm run build:admin && npm run build:backend",
+    "build": "cd admin && npm install && npm run build && cd ../backend && npm install && npx prisma generate && npm run build",
     "start": "cd backend && npm run start:prod",
     "migrate": "cd backend && npx prisma migrate deploy"
   }
