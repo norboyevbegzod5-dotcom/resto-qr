@@ -27,7 +27,11 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   async onModuleInit() {
-    await this.launchAllBots();
+    setImmediate(() => {
+      this.launchAllBots().catch((e) =>
+        this.logger.error('Failed to launch bots on startup', e),
+      );
+    });
   }
 
   async onModuleDestroy() {

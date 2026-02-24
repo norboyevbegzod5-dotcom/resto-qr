@@ -41,9 +41,13 @@ async function bootstrap() {
     });
   }
 
-  const port = process.env.PORT || 3000;
+  const port = process.env.PORT || 10000;
+  console.log(`Attempting to listen on port ${port}...`);
   await app.listen(port, '0.0.0.0');
   console.log(`Server running on port ${port}`);
   console.log(`Swagger docs at /api/docs`);
 }
-bootstrap();
+bootstrap().catch((err) => {
+  console.error('Failed to start application:', err);
+  process.exit(1);
+});
