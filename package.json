@@ -6,7 +6,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "postinstall": "cd backend && npm install --include=dev && cd ../admin && npm install --include=dev",
+    "postinstall": "cd backend && npm install && cd ../admin && npm install",
     "build:admin": "cd admin && npm run build",
     "build:backend": "cd backend && npx prisma generate && npm run build",
     "build": "npm run build:admin && npm run build:backend",
