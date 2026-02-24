@@ -1,0 +1,16 @@
+{
+  "name": "resto-qr",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "postinstall": "cd backend && npm install && cd ../admin && npm install",
+    "build:admin": "cd admin && npm run build",
+    "build:backend": "cd backend && npx prisma generate && npm run build",
+    "build": "npm run build:admin && npm run build:backend",
+    "start": "cd backend && npm run start:prod",
+    "migrate": "cd backend && npx prisma migrate deploy"
+  }
+}

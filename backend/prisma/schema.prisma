@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          Int       @id @default(autoincrement())
+  name        String?
+  phone       String?   @unique
+  chatId      String?   @unique
+  botLanguage String?
+  botStep     String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  vouchers Voucher[]
+
+  @@map("users")
+}
+
+model Admin {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  password  String
+  role      String   @default("admin")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("admins")
+}
+
+model Brand {
+  id        Int      @id @default(autoincrement())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  vouchers     Voucher[]
+  telegramBots TelegramBot[]
+
+  @@map("brands")
+}
+
+model Campaign {
+  id            Int      @id @default(autoincrement())
+  title         String
+  description   String?
+  startDate     DateTime
+  endDate       DateTime
+  sumPerVoucher Int      @default(300000)
+  minVouchers   Int      @default(10)
+  minBrands     Int      @default(3)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  vouchers Voucher[]
+
+  @@map("campaigns")
+}
+
+enum VoucherStatus {
+  FREE
+  ACTIVATED
+  USED
+  DELETED
+}
+
+model Voucher {
+  id          Int           @id @default(autoincrement())
+  code        String        @unique
+  campaignId  Int
+  campaign    Campaign      @relation(fields: [campaignId], references: [id])
+  brandId     Int
+  brand       Brand         @relation(fields: [brandId], references: [id])
+  userId      Int?
+  user        User?         @relation(fields: [userId], references: [id])
+  status      VoucherStatus @default(FREE)
+  activatedAt DateTime?
+  createdAt   DateTime      @default(now())
+
+  winner Winner?
+
+  @@index([campaignId])
+  @@index([brandId])
+  @@index([userId])
+  @@index([status])
+  @@map("vouchers")
+}
+
+model Winner {
+  id        Int      @id @default(autoincrement())
+  voucherId Int      @unique
+  voucher   Voucher  @relation(fields: [voucherId], references: [id])
+  wonAt     DateTime @default(now())
+  notes     String?
+
+  @@map("winners")
+}
+
+model TelegramBot {
+  id        Int      @id @default(autoincrement())
+  name      String
+  token     String   @unique
+  username  String   @unique
+  brandId   Int?
+  brand     Brand?   @relation(fields: [brandId], references: [id])
+  miniAppUrl String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("telegram_bots")
+}
+
+model ActivationLog {
+  id        Int      @id @default(autoincrement())
+  chatId    String?
+  code      String
+  success   Boolean
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@map("activation_logs")
+}
