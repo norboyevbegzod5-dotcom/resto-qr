@@ -6,7 +6,7 @@
     "node": "18.x"
   },
   "scripts": {
-    "build": "(cd admin && npm install && npm run build) && (cd backend && npm install && npx prisma generate && npm run build)",
+    "build": "chmod +x build.sh && bash build.sh",
     "start": "cd backend && npm run start:prod",
     "migrate": "cd backend && npx prisma migrate deploy"
   }
