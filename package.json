@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "engines": {
-    "node": ">=18"
+    "node": "18.x"
   },
   "scripts": {
     "build": "(cd admin && npm install && npm run build) && (cd backend && npm install && npx prisma generate && npm run build)",
