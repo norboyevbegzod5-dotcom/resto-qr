@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usersApi } from '../api/endpoints';
-import { Search, CheckCircle, XCircle, Trash2 } from 'lucide-react';
+import { Search, CheckCircle, XCircle, Trash2, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../api/client';
 
@@ -36,9 +36,35 @@ export default function UsersPage() {
 
   const totalPages = data ? Math.ceil(data.total / data.limit) : 1;
 
+  const handleExportCsv = () => {
+    const token = localStorage.getItem('token');
+    const baseUrl = import.meta.env.VITE_API_URL || '';
+    const url = `${baseUrl}/api/admin/users/export-csv`;
+    const link = document.createElement('a');
+    link.href = url;
+
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.blob())
+      .then((blob) => {
+        const objectUrl = URL.createObjectURL(blob);
+        link.href = objectUrl;
+        link.download = 'users.csv';
+        link.click();
+        URL.revokeObjectURL(objectUrl);
+      });
+  };
+
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Пользователи</h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">Пользователи</h2>
+        <button
+          onClick={handleExportCsv}
+          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition"
+        >
+          <Download size={16} /> Скачать CSV
+        </button>
+      </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
         <div className="p-4 border-b border-gray-200 flex flex-wrap gap-3">

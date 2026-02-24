@@ -46,6 +46,32 @@ export class AdminController {
     return this.usersService.findAll({ page, limit, search, eligible, campaignId });
   }
 
+  @Get('users/export-csv')
+  async exportUsersCsv(@Res() res: Response) {
+    const allUsers = await this.usersService.findAll({ page: 1, limit: 100000 });
+
+    const BOM = '\uFEFF';
+    const header = 'ID;Имя;Телефон;Chat ID;Кодов;Брендов;Участвует;Дата регистрации';
+    const rows = allUsers.data.map((u: any) =>
+      [
+        u.id,
+        u.name || '',
+        u.phone || '',
+        u.chatId || '',
+        u.totalVouchers,
+        u.brandCount,
+        u.eligible ? 'Да' : 'Нет',
+        new Date(u.createdAt).toLocaleDateString('ru-RU'),
+      ].join(';'),
+    );
+
+    const csv = BOM + [header, ...rows].join('\n');
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=users.csv');
+    res.send(csv);
+  }
+
   @Post('users/:id/reset-vouchers')
   async resetUserVouchers(@Param('id', ParseIntPipe) id: number) {
     const count = await this.prisma.voucher.updateMany({
