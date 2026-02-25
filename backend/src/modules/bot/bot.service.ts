@@ -77,7 +77,12 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
       this.registerHandlers(instance);
 
-      await telegraf.launch();
+      const launchPromise = telegraf.launch();
+      const timeout = new Promise<void>((_, reject) =>
+        setTimeout(() => reject(new Error('Launch timeout')), 15000),
+      );
+      await Promise.race([launchPromise, timeout]);
+
       this.bots.set(dbBot.id, instance);
       this.logger.log(`Bot "${dbBot.name}" (@${dbBot.username}) started`);
     } catch (e: any) {

@@ -212,7 +212,7 @@ export class AdminController {
 
   @Get('bots')
   async getBots() {
-    await this.botService.ensureBotsRunning();
+    this.botService.ensureBotsRunning().catch(() => {});
 
     const bots = await this.prisma.telegramBot.findMany({
       include: { brand: true },
@@ -220,7 +220,12 @@ export class AdminController {
     });
     const running = this.botService.getRunningBots();
     const runningIds = new Set(running.map((r) => r.id));
-    return bots.map((b) => ({ ...b, token: undefined, running: runningIds.has(b.id) }));
+    return bots.map((b) => ({
+      ...b,
+      token: undefined,
+      running: runningIds.has(b.id),
+      shouldBeRunning: b.isActive,
+    }));
   }
 
   @Post('bots')
