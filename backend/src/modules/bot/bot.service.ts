@@ -111,6 +111,19 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     }));
   }
 
+  async ensureBotsRunning() {
+    const dbBots = await this.prisma.telegramBot.findMany({
+      where: { isActive: true },
+    });
+
+    for (const dbBot of dbBots) {
+      if (!this.bots.has(dbBot.id)) {
+        this.logger.log(`Auto-launching bot "${dbBot.name}" (was not running)`);
+        await this.launchBot(dbBot);
+      }
+    }
+  }
+
   // ── Регистрация хендлеров для каждого бота ──
 
   private registerHandlers(bot: BotInstance) {

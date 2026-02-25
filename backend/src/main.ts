@@ -31,11 +31,15 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.get('/api/health', (_req: any, res: any) => {
+    res.json({ status: 'ok', uptime: process.uptime() });
+  });
+
   const clientPath = join(__dirname, '..', 'client');
   if (existsSync(clientPath)) {
     app.useStaticAssets(clientPath);
 
-    const expressApp = app.getHttpAdapter().getInstance();
     expressApp.get(/^(?!\/api\/).*/, (_req: any, res: any) => {
       res.sendFile(join(clientPath, 'index.html'));
     });
@@ -46,6 +50,14 @@ async function bootstrap() {
   await app.listen(port, '0.0.0.0');
   console.log(`Server running on port ${port}`);
   console.log(`Swagger docs at /api/docs`);
+
+  if (process.env.RENDER_EXTERNAL_URL) {
+    const url = process.env.RENDER_EXTERNAL_URL;
+    setInterval(() => {
+      fetch(`${url}/api/health`).catch(() => {});
+    }, 14 * 60 * 1000);
+    console.log(`Keep-alive ping enabled for ${url}`);
+  }
 }
 bootstrap().catch((err) => {
   console.error('Failed to start application:', err);

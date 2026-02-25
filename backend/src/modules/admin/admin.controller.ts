@@ -212,6 +212,8 @@ export class AdminController {
 
   @Get('bots')
   async getBots() {
+    await this.botService.ensureBotsRunning();
+
     const bots = await this.prisma.telegramBot.findMany({
       include: { brand: true },
       orderBy: { createdAt: 'desc' },
