@@ -6,9 +6,10 @@ import { CampaignsModule } from '../campaigns/campaigns.module';
 import { VouchersModule } from '../vouchers/vouchers.module';
 import { AuthModule } from '../auth/auth.module';
 import { BotModule } from '../bot/bot.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
-  imports: [AuthModule, UsersModule, BrandsModule, CampaignsModule, VouchersModule, BotModule],
+  imports: [AuthModule, UsersModule, BrandsModule, CampaignsModule, VouchersModule, BotModule, NotificationModule],
   controllers: [AdminController],
 })
 export class AdminModule {}

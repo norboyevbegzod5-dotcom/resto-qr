@@ -129,6 +129,42 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  // ── Отправка сообщений пользователям ──
+
+  async sendMessageToUser(chatId: string, message: string): Promise<boolean> {
+    const firstBot = this.bots.values().next().value;
+    if (!firstBot) {
+      this.logger.warn('No running bots to send message');
+      return false;
+    }
+
+    try {
+      await firstBot.telegraf.telegram.sendMessage(chatId, message, { parse_mode: 'HTML' });
+      return true;
+    } catch (e: any) {
+      this.logger.error(`Failed to send to ${chatId}: ${e.message}`);
+      return false;
+    }
+  }
+
+  async broadcastToUsers(
+    chatIds: string[],
+    message: string,
+  ): Promise<{ sent: number; failed: number }> {
+    let sent = 0;
+    let failed = 0;
+
+    for (const chatId of chatIds) {
+      const ok = await this.sendMessageToUser(chatId, message);
+      if (ok) sent++;
+      else failed++;
+
+      await new Promise((r) => setTimeout(r, 35));
+    }
+
+    return { sent, failed };
+  }
+
   // ── Регистрация хендлеров для каждого бота ──
 
   private registerHandlers(bot: BotInstance) {
@@ -228,9 +264,25 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       const result = await this.vouchersService.activateCode(chatId, code, name, phone || undefined);
       const brandList = result.brands.map((b) => `  • ${b.brand}: ${b.count}`).join('\n');
 
-      const msg = result.eligible
-        ? `✅ Код ${result.code} успешно активирован!\n\n📊 Ваши коды: ${result.totalVouchers}\n📋 Бренды:\n${brandList}\n\n🎉 Поздравляем! Вы выполнили все условия акции и участвуете в розыгрыше!`
-        : `✅ Код ${result.code} успешно активирован!\n\n📊 Ваши коды: ${result.totalVouchers}\n📋 Бренды:\n${brandList}\n\n⏳ Продолжайте собирать коды для участия в розыгрыше!`;
+      const campaign = await this.campaignsService.getActive();
+      const remainingVouchers = campaign ? campaign.minVouchers - result.totalVouchers : 0;
+      const remainingBrands = campaign ? campaign.minBrands - result.brandCount : 0;
+
+      let statusMsg: string;
+      if (result.eligible) {
+        statusMsg = '🎉 Поздравляем! Вы выполнили все условия акции и участвуете в розыгрыше!';
+      } else if (remainingVouchers <= 3 && remainingVouchers > 0) {
+        statusMsg = `🔥 Осталось всего ${remainingVouchers} купон(ов) до участия в розыгрыше!`;
+      } else if (remainingVouchers === 1) {
+        statusMsg = '⚡ Ещё один купон — и вы участвуете в розыгрыше!';
+      } else {
+        const parts: string[] = [];
+        if (remainingVouchers > 0) parts.push(`${remainingVouchers} купон(ов)`);
+        if (remainingBrands > 0) parts.push(`${remainingBrands} бренд(ов)`);
+        statusMsg = `⏳ До участия осталось: ${parts.join(', ')}. Продолжайте собирать!`;
+      }
+
+      const msg = `✅ Код ${result.code} успешно активирован!\n\n📊 Ваши коды: ${result.totalVouchers}\n📋 Бренды:\n${brandList}\n\n${statusMsg}`;
 
       await ctx.reply(msg);
     } catch (e: any) {

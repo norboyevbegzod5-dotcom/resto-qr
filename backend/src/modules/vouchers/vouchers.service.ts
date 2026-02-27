@@ -57,6 +57,7 @@ export class VouchersService {
       ok: true,
       code,
       totalVouchers: stats!.totalVouchers,
+      brandCount: stats!.brandCount,
       brands: stats!.brands,
       eligible: stats!.eligible,
     };

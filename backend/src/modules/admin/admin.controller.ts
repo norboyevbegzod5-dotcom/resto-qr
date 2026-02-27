@@ -12,6 +12,7 @@ import { VouchersService } from '../vouchers/vouchers.service';
 import { VoucherGenerationService } from '../vouchers/voucher-generation.service';
 import { QrService } from '../vouchers/qr.service';
 import { BotService } from '../bot/bot.service';
+import { NotificationService } from '../notification/notification.service';
 import { CreateBrandDto } from '../brands/dto/create-brand.dto';
 import { CreateCampaignDto } from '../campaigns/dto/create-campaign.dto';
 import { UpdateCampaignDto } from '../campaigns/dto/update-campaign.dto';
@@ -31,6 +32,7 @@ export class AdminController {
     private voucherGenerationService: VoucherGenerationService,
     private qrService: QrService,
     private botService: BotService,
+    private notificationService: NotificationService,
   ) {}
 
   // ── Users ──
@@ -289,6 +291,50 @@ export class AdminController {
     await this.botService.stopBot(id);
     await this.prisma.telegramBot.update({ where: { id }, data: { isActive: false } });
     return { ok: true };
+  }
+
+  // ── Broadcast / Notifications ──
+
+  @Post('broadcast/preview')
+  async broadcastPreview(
+    @Body() body: { minVouchers?: number; maxRemaining?: number; eligible?: boolean },
+  ) {
+    const users = await this.notificationService.getTargetUsers(body);
+    return {
+      count: users.length,
+      users: users.slice(0, 50).map((u) => ({
+        id: u.id,
+        name: u.name,
+        phone: u.phone,
+        totalVouchers: u.totalVouchers,
+        remainingVouchers: u.remainingVouchers,
+        eligible: u.eligible,
+      })),
+    };
+  }
+
+  @Post('broadcast/send')
+  async broadcastSend(
+    @Body() body: {
+      message: string;
+      minVouchers?: number;
+      maxRemaining?: number;
+      eligible?: boolean;
+    },
+  ) {
+    if (!body.message || body.message.trim().length === 0) {
+      throw new BadRequestException('Текст сообщения не может быть пустым');
+    }
+
+    const users = await this.notificationService.getTargetUsers({
+      minVouchers: body.minVouchers,
+      maxRemaining: body.maxRemaining,
+      eligible: body.eligible,
+    });
+
+    const chatIds = users.map((u) => u.chatId);
+    const result = await this.notificationService.sendBroadcast(chatIds, body.message);
+    return { ...result, total: chatIds.length };
   }
 
   // ── Dashboard Stats ──

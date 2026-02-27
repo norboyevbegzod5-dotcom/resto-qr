@@ -7,6 +7,7 @@ import {
   Ticket,
   Trophy,
   Bot,
+  Send,
   LogOut,
 } from 'lucide-react';
 
@@ -18,6 +19,7 @@ const navItems = [
   { path: '/vouchers', label: 'Ваучеры', icon: Ticket },
   { path: '/lottery', label: 'Розыгрыш', icon: Trophy },
   { path: '/bots', label: 'Telegram-боты', icon: Bot },
+  { path: '/broadcast', label: 'Рассылка', icon: Send },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {

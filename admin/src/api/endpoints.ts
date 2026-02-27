@@ -52,6 +52,13 @@ export const lotteryApi = {
   markWinner: (code: string) => api.post('/admin/mark-winner', { code }),
 };
 
+export const broadcastApi = {
+  preview: (filters: { minVouchers?: number; maxRemaining?: number; eligible?: boolean }) =>
+    api.post('/admin/broadcast/preview', filters),
+  send: (data: { message: string; minVouchers?: number; maxRemaining?: number; eligible?: boolean }) =>
+    api.post('/admin/broadcast/send', data),
+};
+
 export const statsApi = {
   get: () => api.get('/admin/stats'),
 };

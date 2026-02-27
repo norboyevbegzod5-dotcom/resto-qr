@@ -8,6 +8,7 @@ import CampaignsPage from './pages/CampaignsPage';
 import VouchersPage from './pages/VouchersPage';
 import LotteryPage from './pages/LotteryPage';
 import BotsPage from './pages/BotsPage';
+import BroadcastPage from './pages/BroadcastPage';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('token');
@@ -31,6 +32,7 @@ export default function App() {
                 <Route path="/vouchers" element={<VouchersPage />} />
                 <Route path="/lottery" element={<LotteryPage />} />
                 <Route path="/bots" element={<BotsPage />} />
+                <Route path="/broadcast" element={<BroadcastPage />} />
               </Routes>
             </Layout>
           </PrivateRoute>
