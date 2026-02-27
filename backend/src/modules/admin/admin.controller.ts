@@ -175,7 +175,8 @@ export class AdminController {
 
   @Get('vouchers/qr/:code')
   async getQrCode(@Param('code') code: string, @Res() res: Response) {
-    const png = await this.qrService.generateQrPng(code);
+    const voucher = await this.prisma.voucher.findUnique({ where: { code } });
+    const png = await this.qrService.generateQrPng(code, voucher?.brandId);
     res.setHeader('Content-Type', 'image/png');
     res.setHeader('Content-Disposition', `inline; filename=qr-${code}.png`);
     res.send(png);
