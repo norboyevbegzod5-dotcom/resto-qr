@@ -151,6 +151,14 @@ export class AdminController {
     return this.voucherGenerationService.generate(dto.campaignId, dto.brandId, dto.count);
   }
 
+  @Delete('vouchers/all')
+  async deleteAllVouchers() {
+    await this.prisma.winner.deleteMany();
+    await this.prisma.activationLog.deleteMany();
+    const result = await this.prisma.voucher.deleteMany();
+    return { ok: true, deleted: result.count };
+  }
+
   @Get('vouchers/export')
   async exportVouchers(
     @Query('campaignId') campaignId?: number,

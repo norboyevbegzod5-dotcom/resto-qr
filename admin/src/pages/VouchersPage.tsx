@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { vouchersApi, brandsApi, campaignsApi } from '../api/endpoints';
-import { Plus, Download, X, QrCode, FileDown } from 'lucide-react';
+import { Plus, Download, X, QrCode, FileDown, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function VouchersPage() {
@@ -144,6 +144,21 @@ export default function VouchersPage() {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-900">Ваучеры</h2>
         <div className="flex gap-2">
+          <button
+            onClick={async () => {
+              if (confirm('Удалить ВСЕ ваучеры? Это действие нельзя отменить!')) {
+                try {
+                  const res = await vouchersApi.deleteAll();
+                  queryClient.invalidateQueries({ queryKey: ['vouchers'] });
+                  queryClient.invalidateQueries({ queryKey: ['stats'] });
+                  toast.success(`Удалено ${res.data.deleted} ваучеров`);
+                } catch { toast.error('Ошибка удаления'); }
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2 border border-red-300 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition"
+          >
+            <Trash2 size={16} /> Удалить все
+          </button>
           <button
             onClick={handleExport}
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition"
