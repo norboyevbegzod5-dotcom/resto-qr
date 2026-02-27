@@ -58,23 +58,10 @@ export class QrService {
         doc.on('data', (chunk: Buffer) => chunks.push(chunk));
         doc.on('end', () => resolve(Buffer.concat(chunks)));
 
-        const cols = 3;
-        const rows = 4;
-        const perPage = cols * rows;
-
-        const cellW = (doc.page.width - 60) / cols;
-        const cellH = (doc.page.height - 60) / rows;
-        const qrSize = Math.min(cellW - 20, cellH - 50);
+        const qrSize = Math.min(doc.page.width - 80, 400);
 
         for (let i = 0; i < vouchers.length; i++) {
-          if (i > 0 && i % perPage === 0) doc.addPage();
-
-          const posOnPage = i % perPage;
-          const col = posOnPage % cols;
-          const row = Math.floor(posOnPage / cols);
-
-          const x = 30 + col * cellW;
-          const y = 30 + row * cellH;
+          if (i > 0) doc.addPage();
 
           const v = vouchers[i];
           const url = await this.getDeepLink(v.code, v.brandId);
@@ -85,22 +72,24 @@ export class QrService {
             errorCorrectionLevel: 'M',
           });
 
-          const qrX = x + (cellW - qrSize) / 2;
-          doc.image(qrPng, qrX, y, { width: qrSize, height: qrSize });
+          const qrX = (doc.page.width - qrSize) / 2;
+          const qrY = (doc.page.height - qrSize) / 2 - 60;
+
+          doc.image(qrPng, qrX, qrY, { width: qrSize, height: qrSize });
 
           doc
-            .fontSize(11)
+            .fontSize(24)
             .font('Helvetica-Bold')
-            .text(v.code, x, y + qrSize + 4, {
-              width: cellW,
+            .text(v.code, 0, qrY + qrSize + 20, {
+              width: doc.page.width,
               align: 'center',
             });
 
           doc
-            .fontSize(7)
+            .fontSize(16)
             .font('Helvetica')
-            .text(v.brand.name, x, y + qrSize + 18, {
-              width: cellW,
+            .text(v.brand.name, 0, qrY + qrSize + 55, {
+              width: doc.page.width,
               align: 'center',
             });
         }
