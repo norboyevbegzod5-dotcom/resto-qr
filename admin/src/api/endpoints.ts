@@ -35,6 +35,8 @@ export const vouchersApi = {
   getQrUrl: (code: string) => `/api/admin/vouchers/qr/${code}`,
   exportQrPdf: (params: { campaignId: number; brandId?: number; status?: string }) =>
     api.get('/admin/vouchers/qr-batch', { params, responseType: 'blob' }),
+  exportQrZip: (params: { campaignId: number; brandId?: number; status?: string }) =>
+    api.get('/admin/vouchers/qr-batch-zip', { params, responseType: 'blob' }),
   deleteAll: () => api.delete('/admin/vouchers/all'),
 };
 

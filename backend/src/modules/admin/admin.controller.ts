@@ -186,7 +186,7 @@ export class AdminController {
     const voucher = await this.prisma.voucher.findUnique({ where: { code } });
     const png = await this.qrService.generateQrPng(code, voucher?.brandId);
     res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Content-Disposition', `inline; filename=qr-${code}.png`);
+    res.setHeader('Content-Disposition', `attachment; filename=qr-${code}.png`);
     res.send(png);
   }
 
@@ -205,6 +205,23 @@ export class AdminController {
     res!.setHeader('Content-Type', 'application/pdf');
     res!.setHeader('Content-Disposition', 'attachment; filename=vouchers-qr.pdf');
     res!.send(pdf);
+  }
+
+  @Get('vouchers/qr-batch-zip')
+  async getQrBatchZip(
+    @Query('campaignId', ParseIntPipe) campaignId: number,
+    @Query('brandId') brandId?: number,
+    @Query('status') status?: string,
+    @Res() res?: Response,
+  ) {
+    const zip = await this.qrService.generateBatchZip(
+      campaignId,
+      brandId ? +brandId : undefined,
+      status,
+    );
+    res!.setHeader('Content-Type', 'application/zip');
+    res!.setHeader('Content-Disposition', 'attachment; filename=vouchers-qr.zip');
+    res!.send(zip);
   }
 
   // ── Lottery ──

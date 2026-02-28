@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { vouchersApi, brandsApi, campaignsApi } from '../api/endpoints';
-import { Plus, Download, X, QrCode, FileDown, Trash2 } from 'lucide-react';
+import { Plus, Download, X, QrCode, FileDown, Trash2, Archive } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function VouchersPage() {
@@ -68,6 +68,29 @@ export default function VouchersPage() {
       toast.success('QR PDF экспортирован');
     } catch {
       toast.error('Ошибка экспорта QR PDF');
+    }
+  };
+
+  const handleExportQrZip = async () => {
+    if (!filters.campaignId) {
+      toast.error('Выберите кампанию для экспорта QR');
+      return;
+    }
+    try {
+      const res = await vouchersApi.exportQrZip({
+        campaignId: +filters.campaignId,
+        brandId: filters.brandId ? +filters.brandId : undefined,
+        status: filters.status || undefined,
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/zip' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'vouchers-qr.zip';
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast.success('QR PNG (ZIP) экспортирован');
+    } catch {
+      toast.error('Ошибка экспорта QR ZIP');
     }
   };
 
@@ -170,6 +193,12 @@ export default function VouchersPage() {
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition"
           >
             <FileDown size={16} /> QR PDF
+          </button>
+          <button
+            onClick={handleExportQrZip}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition"
+          >
+            <Archive size={16} /> QR PNG
           </button>
           <button
             onClick={() => setShowGenerate(true)}
