@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import * as QRCode from 'qrcode';
 import * as PDFDocument from 'pdfkit';
 import * as archiver from 'archiver';
+import * as sharp from 'sharp';
 import { PrismaService } from '../../common/prisma.service';
 
 @Injectable()
@@ -14,13 +15,38 @@ export class QrService {
   }
 
   async generateQrPng(code: string): Promise<Buffer> {
+    const qrSize = 400;
+    const padding = 16;
+    const textHeight = 48;
+    const totalWidth = qrSize + padding * 2;
+    const totalHeight = qrSize + textHeight + padding * 2;
+
     const url = this.getDeepLink(code);
-    return QRCode.toBuffer(url, {
+    const qrBuffer = await QRCode.toBuffer(url, {
       type: 'png',
-      width: 400,
+      width: qrSize,
       margin: 2,
       errorCorrectionLevel: 'M',
     });
+
+    const escapedCode = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const textSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="${textHeight}">
+  <text x="${totalWidth / 2}" y="36" font-family="Arial, sans-serif" font-size="28" font-weight="bold" text-anchor="middle" fill="black">${escapedCode}</text>
+</svg>`;
+
+    const textBuffer = await sharp(Buffer.from(textSvg)).png().toBuffer();
+
+    const white = await sharp({
+      create: { width: totalWidth, height: totalHeight, channels: 3, background: { r: 255, g: 255, b: 255 } },
+    }).png().toBuffer();
+
+    return sharp(white)
+      .composite([
+        { input: qrBuffer, top: padding, left: padding },
+        { input: textBuffer, top: qrSize + padding, left: 0 },
+      ])
+      .png()
+      .toBuffer();
   }
 
   async generateBatchPdf(
