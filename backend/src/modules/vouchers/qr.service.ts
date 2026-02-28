@@ -8,25 +8,13 @@ import { PrismaService } from '../../common/prisma.service';
 export class QrService {
   constructor(private prisma: PrismaService) {}
 
-  private async getDeepLink(code: string, brandId?: number): Promise<string> {
-    let botUsername = 'your_bot';
-    if (brandId) {
-      const bot = await this.prisma.telegramBot.findFirst({
-        where: { brandId, isActive: true },
-      });
-      if (bot) botUsername = bot.username;
-    }
-    if (botUsername === 'your_bot') {
-      const anyBot = await this.prisma.telegramBot.findFirst({
-        where: { isActive: true },
-      });
-      if (anyBot) botUsername = anyBot.username;
-    }
-    return `https://t.me/${botUsername}?start=CODE_${code}`;
+  private getDeepLink(code: string): string {
+    const baseUrl = process.env.RENDER_EXTERNAL_URL || 'https://resto-qr.onrender.com';
+    return `${baseUrl}/v/${code}`;
   }
 
-  async generateQrPng(code: string, brandId?: number): Promise<Buffer> {
-    const url = await this.getDeepLink(code, brandId);
+  async generateQrPng(code: string): Promise<Buffer> {
+    const url = this.getDeepLink(code);
     return QRCode.toBuffer(url, {
       type: 'png',
       width: 400,
@@ -65,7 +53,7 @@ export class QrService {
           if (i > 0) doc.addPage();
 
           const v = vouchers[i];
-          const url = await this.getDeepLink(v.code, v.brandId);
+          const url = this.getDeepLink(v.code);
           const qrPng = await QRCode.toBuffer(url, {
             type: 'png',
             width: qrSize,
@@ -128,7 +116,7 @@ export class QrService {
         archive.on('error', reject);
 
         for (const v of vouchers) {
-          const png = await this.generateQrPng(v.code, v.brandId);
+          const png = await this.generateQrPng(v.code);
           archive.append(png, { name: `${v.brand.name}_${v.code}.png` });
         }
 

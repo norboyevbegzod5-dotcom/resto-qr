@@ -40,7 +40,7 @@ async function bootstrap() {
   if (existsSync(clientPath)) {
     app.useStaticAssets(clientPath);
 
-    expressApp.get(/^(?!\/api\/).*/, (_req: any, res: any) => {
+    expressApp.get(/^(?!\/api\/|\/v\/).*/, (_req: any, res: any) => {
       res.sendFile(join(clientPath, 'index.html'));
     });
   }
