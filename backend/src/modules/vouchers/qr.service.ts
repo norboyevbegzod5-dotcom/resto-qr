@@ -17,7 +17,7 @@ export class QrService {
   async generateQrPng(code: string): Promise<Buffer> {
     const qrSize = 400;
     const padding = 16;
-    const textHeight = 64;
+    const textHeight = 80;
     const totalWidth = qrSize + padding * 2;
     const totalHeight = qrSize + textHeight + padding * 2;
 
@@ -31,7 +31,7 @@ export class QrService {
 
     const escapedCode = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const textSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="${textHeight}">
-  <text x="${totalWidth / 2}" y="48" font-family="Arial, sans-serif" font-size="40" font-weight="bold" text-anchor="middle" fill="black">${escapedCode}</text>
+  <text x="${totalWidth / 2}" y="56" font-family="Arial, sans-serif" font-size="56" font-weight="bold" text-anchor="middle" fill="black">${escapedCode}</text>
 </svg>`;
 
     const textBuffer = await sharp(Buffer.from(textSvg)).png().toBuffer();
