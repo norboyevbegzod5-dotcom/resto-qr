@@ -194,6 +194,16 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       catch (e) { this.logger.error(`[${bot.name}] Error in menu`, e); }
     });
 
+    telegraf.hears(/🌐 Язык|🌐 Til/i, async (ctx) => {
+      try { await this.handleLanguage(ctx); }
+      catch (e) { this.logger.error(`[${bot.name}] Error in language`, e); }
+    });
+
+    telegraf.hears(/📞 Контакты|📞 Kontaktlar/i, async (ctx) => {
+      try { await this.handleContacts(ctx, bot); }
+      catch (e) { this.logger.error(`[${bot.name}] Error in contacts`, e); }
+    });
+
     telegraf.on('contact', async (ctx) => {
       try { await this.handleContact(ctx); }
       catch (e) { this.logger.error(`[${bot.name}] Error in contact`, e); }
@@ -203,18 +213,22 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       try {
         const lang = ctx.match[1];
         const chatId = ctx.from!.id.toString();
-        await this.usersService.findOrCreateByChatId(chatId, ctx.from?.first_name);
+        const user = await this.usersService.findOrCreateByChatId(chatId, ctx.from?.first_name);
         await this.usersService.updateLanguage(chatId, lang);
         await ctx.answerCbQuery();
 
-        const greeting = lang === 'UZ'
-          ? 'Til tanlandi: O\'zbekcha\nTelefon raqamingizni yuboring:'
-          : 'Язык выбран: Русский\nОтправьте ваш номер телефона:';
-
-        await ctx.reply(greeting, Markup.keyboard([
-          Markup.button.contactRequest(lang === 'UZ' ? '📱 Raqamni yuborish' : '📱 Отправить номер'),
-        ]).resize());
-        await this.usersService.updateBotStep(chatId, 'AWAITING_PHONE');
+        if (!user.phone) {
+          const greeting = lang === 'UZ'
+            ? 'Til tanlandi: O\'zbekcha\nTelefon raqamingizni yuboring:'
+            : 'Язык выбран: Русский\nОтправьте ваш номер телефона:';
+          await ctx.reply(greeting, Markup.keyboard([
+            Markup.button.contactRequest(lang === 'UZ' ? '📱 Raqamni yuborish' : '📱 Отправить номер'),
+          ]).resize());
+          await this.usersService.updateBotStep(chatId, 'AWAITING_PHONE');
+        } else {
+          const msg = lang === 'UZ' ? 'Til o\'zgartirildi.' : 'Язык изменён.';
+          await ctx.reply(msg, this.getMainKeyboard(lang));
+        }
       } catch (e) {
         this.logger.error(`[${bot.name}] Error in lang selection`, e);
       }
@@ -241,6 +255,20 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    if (!user.phone) {
+      const lang = user.botLanguage;
+      await ctx.reply(
+        lang === 'UZ'
+          ? '📱 Ro\'yxatdan o\'tish majburiy. Telefon raqamingizni yuboring:'
+          : '📱 Регистрация обязательна. Отправьте ваш номер телефона:',
+        Markup.keyboard([
+          Markup.button.contactRequest(lang === 'UZ' ? '📱 Raqamni yuborish' : '📱 Отправить номер'),
+        ]).resize(),
+      );
+      await this.usersService.updateBotStep(chatId, 'AWAITING_PHONE');
+      return;
+    }
+
     if (payload && payload.startsWith('CODE_')) {
       const code = payload.replace('CODE_', '');
       await this.activateVoucherForUser(ctx, chatId, code, name, user.phone);
@@ -255,6 +283,29 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
         : `Здравствуйте, ${user.name || 'друг'}! 👋\nДобро пожаловать в бот ${bot.name}!\nВыберите действие:`,
       this.getMainKeyboard(lang),
     );
+  }
+
+  private async requireRegistration(ctx: Context, chatId: string): Promise<{ ok: boolean; lang?: string }> {
+    const user = await this.usersService.findOrCreateByChatId(chatId);
+    if (!user.botLanguage) {
+      await ctx.reply('🌐 Выберите язык / Tilni tanlang:', Markup.inlineKeyboard([
+        Markup.button.callback('🇷🇺 Русский', 'lang_RU'),
+        Markup.button.callback('🇺🇿 O\'zbekcha', 'lang_UZ'),
+      ]));
+      return { ok: false };
+    }
+    if (!user.phone) {
+      const lang = user.botLanguage;
+      await ctx.reply(
+        lang === 'UZ'
+          ? '📱 Avval ro\'yxatdan o\'ting. Telefon raqamingizni yuboring:'
+          : '📱 Сначала зарегистрируйтесь. Отправьте ваш номер телефона:',
+        Markup.keyboard([Markup.button.contactRequest(lang === 'UZ' ? '📱 Raqamni yuborish' : '📱 Отправить номер')]).resize(),
+      );
+      await this.usersService.updateBotStep(chatId, 'AWAITING_PHONE');
+      return { ok: false };
+    }
+    return { ok: true, lang: user.botLanguage };
   }
 
   // ── Активация кода ──
@@ -303,8 +354,10 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
   private async handleProfile(ctx: Context, bot: BotInstance) {
     const chatId = ctx.from!.id.toString();
+    const reg = await this.requireRegistration(ctx, chatId);
+    if (!reg.ok) return;
     const user = await this.usersService.findOrCreateByChatId(chatId);
-    const lang = user.botLanguage || 'RU';
+    const lang = reg.lang || user.botLanguage || 'RU';
     const stats = await this.usersService.getUserStats(chatId);
 
     if (!stats || stats.totalVouchers === 0) {
@@ -344,8 +397,10 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
   private async handlePromo(ctx: Context) {
     const chatId = ctx.from!.id.toString();
+    const reg = await this.requireRegistration(ctx, chatId);
+    if (!reg.ok) return;
     const user = await this.usersService.findOrCreateByChatId(chatId);
-    const lang = user.botLanguage || 'RU';
+    const lang = reg.lang || user.botLanguage || 'RU';
     const campaign = await this.campaignsService.getActive();
 
     if (!campaign) {
@@ -372,8 +427,10 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
   private async handleMenu(ctx: Context, bot: BotInstance) {
     const chatId = ctx.from!.id.toString();
+    const reg = await this.requireRegistration(ctx, chatId);
+    if (!reg.ok) return;
     const user = await this.usersService.findOrCreateByChatId(chatId);
-    const lang = user.botLanguage || 'RU';
+    const lang = reg.lang || user.botLanguage || 'RU';
 
     if (bot.miniAppUrl) {
       const btnText = lang === 'UZ' ? '📋 Menyuni ochish' : '📋 Открыть меню';
@@ -386,6 +443,30 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     } else {
       await ctx.reply(lang === 'UZ' ? '📋 Menyu tez orada ishga tushadi!' : '📋 Меню скоро будет доступно!');
     }
+  }
+
+  // ── Язык ──
+
+  private async handleLanguage(ctx: Context) {
+    await ctx.reply(
+      '🌐 Выберите язык / Tilni tanlang:',
+      Markup.inlineKeyboard([
+        Markup.button.callback('🇷🇺 Русский', 'lang_RU'),
+        Markup.button.callback('🇺🇿 O\'zbekcha', 'lang_UZ'),
+      ]),
+    );
+  }
+
+  // ── Контакты ──
+
+  private async handleContacts(ctx: Context, bot: BotInstance) {
+    const chatId = ctx.from!.id.toString();
+    const user = await this.usersService.findOrCreateByChatId(chatId);
+    const lang = user.botLanguage || 'RU';
+    const msg = lang === 'UZ'
+      ? `📞 Kontaktlar\n\nAksiya bo'yicha savollar uchun tashkilotchilarga murojaat qiling.`
+      : `📞 Контакты\n\nПо вопросам акции обращайтесь к организаторам.`;
+    await ctx.reply(msg);
   }
 
   // ── Контакт ──
@@ -420,12 +501,14 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     if (lang === 'UZ') {
       return Markup.keyboard([
         ['📋 Menyu', '👤 Profil'],
-        ['🎁 Aksiya'],
+        ['🎁 Aksiya', '📞 Kontaktlar'],
+        ['🌐 Til'],
       ]).resize();
     }
     return Markup.keyboard([
       ['📋 Меню', '👤 Профиль'],
-      ['🎁 Акция'],
+      ['🎁 Акция', '📞 Контакты'],
+      ['🌐 Язык'],
     ]).resize();
   }
 
