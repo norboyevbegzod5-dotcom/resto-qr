@@ -401,7 +401,7 @@ export class AdminController {
       return;
     }
 
-    const buffer = await this.botService.getFileBuffer(receipt.fileId);
+    const buffer = await this.botService.getFileBuffer(receipt.fileId, receipt.botId);
     if (!buffer) {
       res.status(404).send('Image not available');
       return;

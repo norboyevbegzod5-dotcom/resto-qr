@@ -24,13 +24,16 @@ model User {
 }
 
 model ReceiptPhoto {
-  id        Int      @id @default(autoincrement())
+  id        Int          @id @default(autoincrement())
   userId    Int
-  user      User     @relation(fields: [userId], references: [id])
+  user      User         @relation(fields: [userId], references: [id])
+  botId     Int?
+  bot       TelegramBot? @relation(fields: [botId], references: [id])
   fileId    String
-  createdAt DateTime @default(now())
+  createdAt DateTime     @default(now())
 
   @@index([userId])
+  @@index([botId])
   @@map("receipt_photos")
 }
 
@@ -116,16 +119,17 @@ model Winner {
 }
 
 model TelegramBot {
-  id        Int      @id @default(autoincrement())
-  name      String
-  token     String   @unique
-  username  String   @unique
-  brandId   Int?
-  brand     Brand?   @relation(fields: [brandId], references: [id])
-  miniAppUrl String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          Int           @id @default(autoincrement())
+  name        String
+  token       String        @unique
+  username    String        @unique
+  brandId     Int?
+  brand       Brand?        @relation(fields: [brandId], references: [id])
+  miniAppUrl  String?
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  receiptPhotos ReceiptPhoto[]
 
   @@map("telegram_bots")
 }

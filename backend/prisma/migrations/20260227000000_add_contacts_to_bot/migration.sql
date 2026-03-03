@@ -1,0 +1,2 @@
+-- Placeholder migration (file was missing, migration may have been applied previously)
+-- No schema changes - contacts support uses existing User.phone field

@@ -147,12 +147,18 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async getFileBuffer(fileId: string): Promise<Buffer | null> {
-    const firstBot = this.bots.values().next().value;
-    if (!firstBot) return null;
+  async getFileBuffer(fileId: string, botId?: number | null): Promise<Buffer | null> {
+    let instance: BotInstance | undefined;
+    if (botId) {
+      instance = this.bots.get(botId);
+    }
+    if (!instance) {
+      instance = this.bots.values().next().value;
+    }
+    if (!instance) return null;
 
     try {
-      const link = await firstBot.telegraf.telegram.getFileLink(fileId);
+      const link = await instance.telegraf.telegram.getFileLink(fileId);
       const res = await fetch(link.href);
       if (!res.ok) return null;
       const arr = await res.arrayBuffer();
@@ -525,7 +531,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     const fileId = photo[photo.length - 1].file_id;
 
     await this.prisma.receiptPhoto.create({
-      data: { userId: user.id, fileId },
+      data: { userId: user.id, fileId, botId: bot.id },
     });
 
     await this.usersService.updateBotStep(chatId, 'REGISTERED');
