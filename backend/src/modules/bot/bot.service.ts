@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { HttpAdapterHost } from '@nestjs/core';
 import { Telegraf, Context, Markup } from 'telegraf';
 import { PrismaService } from '../../common/prisma.service';
 import { VouchersService } from '../vouchers/vouchers.service';
@@ -24,14 +25,21 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     private vouchersService: VouchersService,
     private usersService: UsersService,
     private campaignsService: CampaignsService,
+    private httpAdapterHost: HttpAdapterHost,
   ) {}
 
   async onModuleInit() {
-    setImmediate(() => {
-      this.launchAllBots().catch((e) =>
-        this.logger.error('Failed to launch bots on startup', e),
-      );
-    });
+    const baseUrl = process.env.RENDER_EXTERNAL_URL;
+    if (baseUrl) {
+      this.logger.log('Using webhooks (RENDER_EXTERNAL_URL set)');
+      await this.registerWebhooks(baseUrl);
+    } else {
+      setImmediate(() => {
+        this.launchAllBots().catch((e) =>
+          this.logger.error('Failed to launch bots on startup', e),
+        );
+      });
+    }
   }
 
   async onModuleDestroy() {
@@ -56,6 +64,70 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     }
 
     this.logger.log(`Launched ${this.bots.size} bot(s)`);
+  }
+
+  private webhookRouteRegistered = false;
+
+  async registerWebhooks(baseUrl: string) {
+    const dbBots = await this.prisma.telegramBot.findMany({
+      where: { isActive: true },
+    });
+
+    if (dbBots.length === 0) {
+      this.logger.warn('No active bots found in database');
+      return;
+    }
+
+    const httpAdapter = this.httpAdapterHost.httpAdapter;
+    const expressApp = httpAdapter.getInstance();
+    const domain = baseUrl.replace(/^https?:\/\//, '');
+
+    if (!this.webhookRouteRegistered) {
+      expressApp.post('/webhook/bot/:id', async (req: any, res: any) => {
+        const id = parseInt(req.params.id, 10);
+        const instance = this.bots.get(id);
+        if (!instance) {
+          res.status(404).end();
+          return;
+        }
+        try {
+          await instance.telegraf.handleUpdate(req.body, res);
+          if (!res.writableEnded) res.end();
+        } catch (e) {
+          this.logger.error(`Webhook error for bot ${id}: ${(e as Error).message}`);
+          if (!res.writableEnded) res.writeHead(500).end();
+        }
+      });
+      this.webhookRouteRegistered = true;
+      this.logger.log('Webhook route registered');
+    }
+
+    for (const dbBot of dbBots) {
+      try {
+        const telegraf = new Telegraf(dbBot.token);
+        const instance: BotInstance = {
+          id: dbBot.id,
+          name: dbBot.name,
+          username: dbBot.username,
+          brandId: dbBot.brandId,
+          miniAppUrl: dbBot.miniAppUrl,
+          telegraf,
+        };
+
+        this.registerHandlers(instance);
+        this.bots.set(dbBot.id, instance);
+
+        const path = `/webhook/bot/${dbBot.id}`;
+        const url = `${baseUrl.replace(/\/$/, '')}${path}`;
+        await telegraf.telegram.setWebhook(url);
+
+        this.logger.log(`Bot "${dbBot.name}" (@${dbBot.username}) webhook at ${url}`);
+      } catch (e: any) {
+        this.logger.error(`Failed to register webhook for "${dbBot.name}": ${e.message}`);
+      }
+    }
+
+    this.logger.log(`Registered ${this.bots.size} webhook(s)`);
   }
 
   async launchBot(dbBot: { id: number; name: string; token: string; username: string; brandId: number | null; miniAppUrl: string | null }) {
@@ -112,8 +184,12 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
   async restartBot(botId: number) {
     await this.stopBot(botId);
+    const baseUrl = process.env.RENDER_EXTERNAL_URL;
     const dbBot = await this.prisma.telegramBot.findUnique({ where: { id: botId } });
-    if (dbBot && dbBot.isActive) {
+    if (!dbBot || !dbBot.isActive) return;
+    if (baseUrl) {
+      await this.registerWebhooks(baseUrl);
+    } else {
       await this.launchBot(dbBot);
     }
   }
