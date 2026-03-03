@@ -524,6 +524,46 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
   // ── Акция ──
 
+  private readonly PROMO_TEXT_RU = `🎁 Розыгрыш автомобиля 
+
+Друзья, мы разыгрываем автомобиль Forthing S7!
+Рестораны Uzbekona, Dolcetta и Resto совместно с Pepsi, Grace Travel и Forthing запускают масштабную акцию.
+
+🎁 Помимо главного приза вас ждут:
+• Путёвка в Дубай на двоих
+• Путёвка в Египет на двоих
+• 2 iPhone 17 Pro Max
+• Сертификаты от наших партнёров
+
+📌 Как участвовать:
+1️⃣ Посетите каждый ресторан — Uzbekona, Dolcetta, Resto — и сделайте в нём заказ на сумму не менее 300 000 сум, чтобы получить билет. Каждый ресторан выдаёт свои билеты, и для участия необходимо собрать хотя бы один билет с каждого заведения.
+
+2️⃣ Общая сумма билетов для участия в розыгрыше должна быть не менее 10. Все билеты нужно активировать в соответствующем Telegram-боте каждого ресторана: сначала зарегистрируйтесь в боте, затем отсканируйте QR-код с билета. В розыгрыше участвуют только активированные билеты.
+
+3️⃣ Чем больше билетов вы активируете, тем выше ваши шансы на победу.
+
+Приходите за любимыми вкусами — возможно, именно ваш визит станет счастливым.`;
+
+  private readonly PROMO_TEXT_UZ = `🎁 Avtomobil o'yini 
+
+Do'stlar, Forthing S7 avtomobilini o'yin qilamiz!
+Uzbekona, Dolcetta va Resto restoranlari Pepsi, Grace Travel va Forthing bilan birga katta aksiyani boshlayapti.
+
+🎁 Asosiy sovrin bilan birga sizni kutayapti:
+• Dubayga juftlik sayohat
+• Misrga juftlik sayohat
+• 2 ta iPhone 17 Pro Max
+• Hamkorlarimizdan sertifikatlar
+
+📌 Qanday qatnashish:
+1️⃣ Har bir restoronga — Uzbekona, Dolcetta, Resto — tashrif buyuring va kamida 300 000 so'm buyurtma bering, bilet olish uchun. Har bir restoran o'z biletlarini beradi, ishtirok etish uchun har bir muassasadan kamida bitta bilet yig'ish kerak.
+
+2️⃣ O'yinda qatnashish uchun biletlar yig'indisi kamida 10 bo'lishi kerak. Barcha biletlarni har bir restoronga tegishli Telegram-botda faollashtirish kerak: avval botda ro'yxatdan o'ting, keyin biletdagi QR-kodni skanerlang. O'yinda faqat faollashtirilgan biletlar qatnashadi.
+
+3️⃣ Qancha ko'p bilet faollashtirsangiz, g'alaba qozonish imkoniyatingiz shunchalik yuqori.
+
+Sevimli taomlar uchun keling — ehtimol, aynan sizning tashrifingiz baxtli bo'ladi.`;
+
   private async handlePromo(ctx: Context) {
     const chatId = ctx.from!.id.toString();
     const reg = await this.requireRegistration(ctx, chatId);
@@ -537,19 +577,8 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    const startDate = new Date(campaign.startDate).toLocaleDateString(lang === 'UZ' ? 'uz-UZ' : 'ru-RU');
-    const endDate = new Date(campaign.endDate).toLocaleDateString(lang === 'UZ' ? 'uz-UZ' : 'ru-RU');
-    const sum = campaign.sumPerVoucher.toLocaleString('ru-RU');
-
-    if (lang === 'UZ') {
-      await ctx.reply(
-        `🎁 ${campaign.title}\n\n${campaign.description || ''}\n\n📅 Muddat: ${startDate} — ${endDate}\n\n📌 Shartlar:\n• Har ${sum} so'm xarid uchun — 1 kupon\n• Kamida ${campaign.minVouchers} ta kupon to'plang\n• Kamida ${campaign.minBrands} ta brenddan kupon bo'lishi kerak\n\n🏆 Barcha shartlarni bajarganlar katta sovrin o'yinida ishtirok etadi!`,
-      );
-    } else {
-      await ctx.reply(
-        `🎁 ${campaign.title}\n\n${campaign.description || ''}\n\n📅 Сроки: ${startDate} — ${endDate}\n\n📌 Условия участия:\n• За каждые ${sum} сум покупки — 1 купон\n• Соберите минимум ${campaign.minVouchers} купонов\n• Купоны должны быть минимум от ${campaign.minBrands} брендов\n\n🏆 Выполнившие все условия участвуют в розыгрыше главного приза!`,
-      );
-    }
+    const text = lang === 'UZ' ? this.PROMO_TEXT_UZ : this.PROMO_TEXT_RU;
+    await ctx.reply(text);
   }
 
   // ── Меню (Mini App) ──
@@ -588,13 +617,40 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
   // ── Контакты ──
 
+  private getContactsForBot(botName: string, lang: string): string {
+    const contacts: Record<string, { name: string; address: string; phone: string; instagram: string }> = {
+      resto: {
+        name: 'Resto',
+        address: '📍ул. Матбуотчилар 1, (ТЦ Poytaxt)',
+        phone: '55 514 11 11',
+        instagram: 'https://www.instagram.com/resto.tashkent?igsh=cmdqZG53dXlvdW14&utm_source=qr',
+      },
+      uzbekona: {
+        name: 'Uzbekona',
+        address: '📍ул. Матбуотчилар 1/2, (ТЦ Poytaxt)',
+        phone: '55 055 44 44',
+        instagram: 'https://www.instagram.com/uzbekona.restaurant?igsh=MWJkYjN6ZW1ibnU2YQ%3D%3D&utm_source=qr',
+      },
+      dolcetta: {
+        name: 'Dolcetta',
+        address: '📍ул. Матбуотчилар 1/1, (ТЦ Poytaxt)',
+        phone: '55 055 11 11',
+        instagram: 'https://www.instagram.com/dolcetta.uz?igsh=cmM5NWZnemp3NnZ0&utm_source=qr',
+      },
+    };
+    const key = botName.toLowerCase();
+    const c = contacts[key] || contacts.resto;
+    if (lang === 'UZ') {
+      return `📞 ${c.name} kontaktlari\n\n🏢 ${c.name}\n${c.address}\n\n📱 ${c.phone}\n\n📸 Instagram:\n${c.instagram}`;
+    }
+    return `📞 Контакты ${c.name}\n\n🏢 ${c.name}\n${c.address}\n\n📱 ${c.phone}\n\n📸 Instagram:\n${c.instagram}`;
+  }
+
   private async handleContacts(ctx: Context, bot: BotInstance) {
     const chatId = ctx.from!.id.toString();
     const user = await this.usersService.findOrCreateByChatId(chatId);
     const lang = user.botLanguage || 'RU';
-    const msg = lang === 'UZ'
-      ? `📞 Kontaktlar\n\nAksiya bo'yicha savollar uchun tashkilotchilarga murojaat qiling.`
-      : `📞 Контакты\n\nПо вопросам акции обращайтесь к организаторам.`;
+    const msg = this.getContactsForBot(bot.name, lang);
     await ctx.reply(msg);
   }
 
