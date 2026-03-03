@@ -147,6 +147,22 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  async getFileBuffer(fileId: string): Promise<Buffer | null> {
+    const firstBot = this.bots.values().next().value;
+    if (!firstBot) return null;
+
+    try {
+      const link = await firstBot.telegraf.telegram.getFileLink(fileId);
+      const res = await fetch(link.href);
+      if (!res.ok) return null;
+      const arr = await res.arrayBuffer();
+      return Buffer.from(arr);
+    } catch (e) {
+      this.logger.error(`Failed to get file ${fileId}: ${(e as Error).message}`);
+      return null;
+    }
+  }
+
   async broadcastToUsers(
     chatIds: string[],
     message: string,
@@ -202,6 +218,16 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     telegraf.hears(/📞 Контакты|📞 Kontaktlar/i, async (ctx) => {
       try { await this.handleContacts(ctx, bot); }
       catch (e) { this.logger.error(`[${bot.name}] Error in contacts`, e); }
+    });
+
+    telegraf.hears(/📷 Загрузить чек|📷 Chek yuklash/i, async (ctx) => {
+      try { await this.handleReceiptRequest(ctx, bot); }
+      catch (e) { this.logger.error(`[${bot.name}] Error in receipt request`, e); }
+    });
+
+    telegraf.on('photo', async (ctx) => {
+      try { await this.handleReceiptPhoto(ctx, bot); }
+      catch (e) { this.logger.error(`[${bot.name}] Error in receipt photo`, e); }
     });
 
     telegraf.on('contact', async (ctx) => {
@@ -469,6 +495,48 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     await ctx.reply(msg);
   }
 
+  // ── Загрузка чека ──
+
+  private async handleReceiptRequest(ctx: Context, bot: BotInstance) {
+    const chatId = ctx.from!.id.toString();
+    const reg = await this.requireRegistration(ctx, chatId);
+    if (!reg.ok) return;
+
+    const user = await this.usersService.findOrCreateByChatId(chatId);
+    const lang = user.botLanguage || 'RU';
+
+    await this.usersService.updateBotStep(chatId, 'AWAITING_RECEIPT');
+    await ctx.reply(
+      lang === 'UZ'
+        ? '📷 Chek rasmini yuboring (foto)'
+        : '📷 Отправьте фото чека',
+    );
+  }
+
+  private async handleReceiptPhoto(ctx: Context, bot: BotInstance) {
+    const chatId = ctx.from!.id.toString();
+    const user = await this.usersService.findOrCreateByChatId(chatId);
+
+    if (user.botStep !== 'AWAITING_RECEIPT') return;
+
+    const photo = (ctx.message as any)?.photo;
+    if (!photo || !Array.isArray(photo) || photo.length === 0) return;
+
+    const fileId = photo[photo.length - 1].file_id;
+
+    await this.prisma.receiptPhoto.create({
+      data: { userId: user.id, fileId },
+    });
+
+    await this.usersService.updateBotStep(chatId, 'REGISTERED');
+
+    const lang = user.botLanguage || 'RU';
+    await ctx.reply(
+      lang === 'UZ' ? '✅ Chek qabul qilindi!' : '✅ Чек принят!',
+      this.getMainKeyboard(lang),
+    );
+  }
+
   // ── Контакт ──
 
   private async handleContact(ctx: Context) {
@@ -501,14 +569,14 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     if (lang === 'UZ') {
       return Markup.keyboard([
         ['📋 Menyu', '👤 Profil'],
-        ['🎁 Aksiya', '📞 Kontaktlar'],
-        ['🌐 Til'],
+        ['🎁 Aksiya', '📷 Chek yuklash'],
+        ['📞 Kontaktlar', '🌐 Til'],
       ]).resize();
     }
     return Markup.keyboard([
       ['📋 Меню', '👤 Профиль'],
-      ['🎁 Акция', '📞 Контакты'],
-      ['🌐 Язык'],
+      ['🎁 Акция', '📷 Загрузить чек'],
+      ['📞 Контакты', '🌐 Язык'],
     ]).resize();
   }
 

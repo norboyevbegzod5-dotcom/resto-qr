@@ -11,5 +11,6 @@ echo "=== Building Backend ==="
 cd backend
 npm install
 npx prisma generate
+npx prisma migrate deploy
 npx tsc -p tsconfig.json
 echo "=== Build Complete ==="

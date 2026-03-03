@@ -362,6 +362,55 @@ export class AdminController {
     return { ...result, total: chatIds.length };
   }
 
+  // ── Чеки ──
+
+  @Get('receipts')
+  async getReceipts(
+    @Query('phone') phone?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    const pageNum = page ? +page : 1;
+    const limitNum = limit ? +limit : 20;
+    const skip = (pageNum - 1) * limitNum;
+
+    const where: any = {};
+    if (phone) {
+      where.user = { phone: { contains: phone } };
+    }
+
+    const [receipts, total] = await Promise.all([
+      this.prisma.receiptPhoto.findMany({
+        where,
+        include: { user: true },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limitNum,
+      }),
+      this.prisma.receiptPhoto.count({ where }),
+    ]);
+
+    return { data: receipts, total, page: pageNum, limit: limitNum };
+  }
+
+  @Get('receipts/:id/image')
+  async getReceiptImage(@Param('id', ParseIntPipe) id: number, @Res() res: Response) {
+    const receipt = await this.prisma.receiptPhoto.findUnique({ where: { id } });
+    if (!receipt) {
+      res.status(404).send('Not found');
+      return;
+    }
+
+    const buffer = await this.botService.getFileBuffer(receipt.fileId);
+    if (!buffer) {
+      res.status(404).send('Image not available');
+      return;
+    }
+
+    res.setHeader('Content-Type', 'image/jpeg');
+    res.send(buffer);
+  }
+
   // ── Dashboard Stats ──
 
   @Get('stats')

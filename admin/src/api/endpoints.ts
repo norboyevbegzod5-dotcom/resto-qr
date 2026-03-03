@@ -62,6 +62,12 @@ export const broadcastApi = {
     api.post('/admin/broadcast/send', data),
 };
 
+export const receiptsApi = {
+  getAll: (params?: { phone?: string; page?: number; limit?: number }) =>
+    api.get('/admin/receipts', { params }),
+  getImageUrl: (id: number) => `/api/admin/receipts/${id}/image`,
+};
+
 export const statsApi = {
   get: () => api.get('/admin/stats'),
 };

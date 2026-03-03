@@ -8,18 +8,30 @@ datasource db {
 }
 
 model User {
-  id          Int       @id @default(autoincrement())
-  name        String?
-  phone       String?   @unique
-  chatId      String?   @unique
-  botLanguage String?
-  botStep     String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id           Int            @id @default(autoincrement())
+  name         String?
+  phone        String?        @unique
+  chatId       String?        @unique
+  botLanguage  String?
+  botStep      String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
-  vouchers Voucher[]
+  vouchers      Voucher[]
+  receiptPhotos ReceiptPhoto[]
 
   @@map("users")
+}
+
+model ReceiptPhoto {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  fileId    String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("receipt_photos")
 }
 
 model Admin {
