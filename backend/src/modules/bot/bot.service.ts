@@ -64,29 +64,40 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    try {
-      const telegraf = new Telegraf(dbBot.token);
-      const instance: BotInstance = {
-        id: dbBot.id,
-        name: dbBot.name,
-        username: dbBot.username,
-        brandId: dbBot.brandId,
-        miniAppUrl: dbBot.miniAppUrl,
-        telegraf,
-      };
+    const LAUNCH_TIMEOUT_MS = 45000;
+    const MAX_RETRIES = 2;
 
-      this.registerHandlers(instance);
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const telegraf = new Telegraf(dbBot.token);
+        const instance: BotInstance = {
+          id: dbBot.id,
+          name: dbBot.name,
+          username: dbBot.username,
+          brandId: dbBot.brandId,
+          miniAppUrl: dbBot.miniAppUrl,
+          telegraf,
+        };
 
-      const launchPromise = telegraf.launch();
-      const timeout = new Promise<void>((_, reject) =>
-        setTimeout(() => reject(new Error('Launch timeout')), 15000),
-      );
-      await Promise.race([launchPromise, timeout]);
+        this.registerHandlers(instance);
 
-      this.bots.set(dbBot.id, instance);
-      this.logger.log(`Bot "${dbBot.name}" (@${dbBot.username}) started`);
-    } catch (e: any) {
-      this.logger.error(`Failed to start bot "${dbBot.name}": ${e.message}`);
+        const launchPromise = telegraf.launch();
+        const timeout = new Promise<void>((_, reject) =>
+          setTimeout(() => reject(new Error('Launch timeout')), LAUNCH_TIMEOUT_MS),
+        );
+        await Promise.race([launchPromise, timeout]);
+
+        this.bots.set(dbBot.id, instance);
+        this.logger.log(`Bot "${dbBot.name}" (@${dbBot.username}) started`);
+        return;
+      } catch (e: any) {
+        this.logger.warn(`Bot "${dbBot.name}" attempt ${attempt}/${MAX_RETRIES}: ${e.message}`);
+        if (attempt < MAX_RETRIES) {
+          await new Promise((r) => setTimeout(r, 5000));
+        } else {
+          this.logger.error(`Failed to start bot "${dbBot.name}": ${e.message}`);
+        }
+      }
     }
   }
 
