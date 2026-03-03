@@ -8,14 +8,15 @@ datasource db {
 }
 
 model User {
-  id           Int            @id @default(autoincrement())
-  name         String?
-  phone        String?        @unique
-  chatId       String?        @unique
-  botLanguage  String?
-  botStep      String?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id                 Int            @id @default(autoincrement())
+  name               String?
+  phone              String?        @unique
+  chatId             String?        @unique
+  botLanguage        String?
+  botStep            String?
+  pendingVoucherCode String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
 
   vouchers      Voucher[]
   receiptPhotos ReceiptPhoto[]

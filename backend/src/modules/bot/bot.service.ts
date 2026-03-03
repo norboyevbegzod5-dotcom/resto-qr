@@ -368,6 +368,9 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     const user = await this.usersService.findOrCreateByChatId(chatId, name);
 
     if (!user.botLanguage) {
+      if (payload?.startsWith('CODE_')) {
+        await this.usersService.updatePendingVoucherCode(chatId, payload.replace('CODE_', ''));
+      }
       await ctx.reply(
         '🌐 Выберите язык / Tilni tanlang:',
         Markup.inlineKeyboard([
@@ -379,6 +382,9 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (!user.phone) {
+      if (payload?.startsWith('CODE_')) {
+        await this.usersService.updatePendingVoucherCode(chatId, payload.replace('CODE_', ''));
+      }
       const lang = user.botLanguage;
       await ctx.reply(
         lang === 'UZ'
@@ -642,18 +648,24 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
     const chatId = ctx.from!.id.toString();
     const phone = contact.phone_number;
+    const name = ctx.from?.first_name || undefined;
 
     try {
-      await this.usersService.updatePhone(chatId, phone);
+      const user = await this.usersService.updatePhone(chatId, phone);
       await this.usersService.updateBotStep(chatId, 'REGISTERED');
 
-      const user = await this.usersService.findOrCreateByChatId(chatId);
       const lang = user.botLanguage || 'RU';
 
-      await ctx.reply(
-        lang === 'UZ' ? '✅ Raqamingiz saqlandi!' : '✅ Номер сохранён!',
-        this.getMainKeyboard(lang),
-      );
+      if (user.pendingVoucherCode) {
+        await this.activateVoucherForUser(ctx, chatId, user.pendingVoucherCode, name, phone);
+        await this.usersService.clearPendingVoucherCode(chatId);
+        await this.sendMainMenu(ctx, lang);
+      } else {
+        await ctx.reply(
+          lang === 'UZ' ? '✅ Raqamingiz saqlandi!' : '✅ Номер сохранён!',
+          this.getMainKeyboard(lang),
+        );
+      }
     } catch (e) {
       this.logger.error('Error saving contact', e);
       await ctx.reply('Произошла ошибка при сохранении номера.');

@@ -154,4 +154,18 @@ export class UsersService {
       data: { phone },
     });
   }
+
+  async updatePendingVoucherCode(chatId: string, code: string) {
+    return this.prisma.user.update({
+      where: { chatId },
+      data: { pendingVoucherCode: code },
+    });
+  }
+
+  async clearPendingVoucherCode(chatId: string) {
+    return this.prisma.user.update({
+      where: { chatId },
+      data: { pendingVoucherCode: null },
+    });
+  }
 }
