@@ -148,25 +148,29 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
   }
 
   async getFileBuffer(fileId: string, botId?: number | null): Promise<Buffer | null> {
-    let instance: BotInstance | undefined;
+    const botsToTry: BotInstance[] = [];
     if (botId) {
-      instance = this.bots.get(botId);
+      const specified = this.bots.get(botId);
+      if (specified) botsToTry.push(specified);
     }
-    if (!instance) {
-      instance = this.bots.values().next().value;
+    for (const [id, inst] of this.bots) {
+      if (!botsToTry.includes(inst)) botsToTry.push(inst);
     }
-    if (!instance) return null;
+    if (botsToTry.length === 0) return null;
 
-    try {
-      const link = await instance.telegraf.telegram.getFileLink(fileId);
-      const res = await fetch(link.href);
-      if (!res.ok) return null;
-      const arr = await res.arrayBuffer();
-      return Buffer.from(arr);
-    } catch (e) {
-      this.logger.error(`Failed to get file ${fileId}: ${(e as Error).message}`);
-      return null;
+    for (const instance of botsToTry) {
+      try {
+        const link = await instance.telegraf.telegram.getFileLink(fileId);
+        const res = await fetch(link.href);
+        if (!res.ok) continue;
+        const arr = await res.arrayBuffer();
+        return Buffer.from(arr);
+      } catch {
+        continue;
+      }
     }
+    this.logger.error(`Failed to get file ${fileId} from any bot`);
+    return null;
   }
 
   async broadcastToUsers(

@@ -72,13 +72,14 @@ export default function ReceiptsPage() {
 function ReceiptCard({ receipt }: { receipt: any }) {
   const [imgUrl, setImgUrl] = useState<string | null>(null);
 
-  const { data: blob, isError } = useQuery({
+  const { data: blob, isError, refetch, isFetching } = useQuery({
     queryKey: ['receipt-image', receipt.id],
     queryFn: async () => {
       const res = await api.get(`admin/receipts/${receipt.id}/image`, { responseType: 'blob' });
       return URL.createObjectURL(res.data);
     },
     enabled: !!receipt.id,
+    retry: 2,
   });
 
   useEffect(() => {
@@ -93,11 +94,21 @@ function ReceiptCard({ receipt }: { receipt: any }) {
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-      <div className="aspect-square bg-gray-100 flex items-center justify-center min-h-[200px]">
+      <div className="aspect-square bg-gray-100 flex flex-col items-center justify-center min-h-[200px] gap-2">
         {imgUrl ? (
           <img src={imgUrl} alt="Чек" className="w-full h-full object-contain" />
         ) : isError ? (
-          <span className="text-gray-400 text-sm">Не удалось загрузить</span>
+          <>
+            <span className="text-gray-400 text-sm">Не удалось загрузить</span>
+            <button
+              type="button"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="text-indigo-600 text-xs hover:underline disabled:opacity-50"
+            >
+              {isFetching ? 'Загрузка...' : 'Повторить'}
+            </button>
+          </>
         ) : (
           <span className="text-gray-400 text-sm">Загрузка...</span>
         )}
