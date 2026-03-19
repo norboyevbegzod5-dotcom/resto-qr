@@ -88,16 +88,22 @@ export class QrService {
 
         const qrSize = Math.min(doc.page.width - 80, 400);
 
-        const qrPngs = await Promise.all(
-          vouchers.map((v) =>
-            QRCode.toBuffer(this.getDeepLink(v.code), {
-              type: 'png',
-              width: qrSize,
-              margin: 1,
-              errorCorrectionLevel: 'M',
-            }),
-          ),
-        );
+        const BATCH_SIZE = 20;
+        const qrPngs: Buffer[] = [];
+        for (let i = 0; i < vouchers.length; i += BATCH_SIZE) {
+          const batch = vouchers.slice(i, i + BATCH_SIZE);
+          const batchPngs = await Promise.all(
+            batch.map((v) =>
+              QRCode.toBuffer(this.getDeepLink(v.code), {
+                type: 'png',
+                width: qrSize,
+                margin: 1,
+                errorCorrectionLevel: 'M',
+              }),
+            ),
+          );
+          qrPngs.push(...batchPngs);
+        }
 
         for (let i = 0; i < vouchers.length; i++) {
           if (i > 0) doc.addPage();
@@ -156,7 +162,7 @@ export class QrService {
 
     return new Promise(async (resolve, reject) => {
       try {
-        const archive = archiver('zip', { zlib: { level: 5 } });
+        const archive = archiver('zip', { zlib: { level: 1 } });
         const chunks: Buffer[] = [];
 
         archive.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -171,9 +177,13 @@ export class QrService {
         });
         archive.on('error', reject);
 
-        const pngs = await Promise.all(vouchers.map((v) => this.generateQrPng(v.code)));
-        for (let i = 0; i < vouchers.length; i++) {
-          archive.append(pngs[i], { name: `${vouchers[i].brand.name}_${vouchers[i].code}.png` });
+        const BATCH_SIZE = 15;
+        for (let i = 0; i < vouchers.length; i += BATCH_SIZE) {
+          const batch = vouchers.slice(i, i + BATCH_SIZE);
+          const pngs = await Promise.all(batch.map((v) => this.generateQrPng(v.code)));
+          for (let j = 0; j < batch.length; j++) {
+            archive.append(pngs[j], { name: `${batch[j].brand.name}_${batch[j].code}.png` });
+          }
         }
 
         await archive.finalize();
