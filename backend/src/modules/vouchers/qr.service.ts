@@ -53,11 +53,14 @@ export class QrService {
     campaignId: number,
     brandId?: number,
     status?: string,
+    exported?: string,
   ): Promise<Buffer> {
     const where: any = { campaignId };
     if (brandId) where.brandId = brandId;
     if (status) where.status = status;
     else where.status = 'FREE';
+    if (exported === 'true') where.exportedAt = { not: null };
+    else if (exported === 'false') where.exportedAt = null;
 
     const vouchers = await this.prisma.voucher.findMany({
       where,
@@ -65,13 +68,23 @@ export class QrService {
       orderBy: { code: 'asc' },
     });
 
+    const voucherIds = vouchers.map((v) => v.id);
+
     return new Promise(async (resolve, reject) => {
       try {
         const doc = new PDFDocument({ size: 'A4', margin: 30 });
         const chunks: Buffer[] = [];
 
         doc.on('data', (chunk: Buffer) => chunks.push(chunk));
-        doc.on('end', () => resolve(Buffer.concat(chunks)));
+        doc.on('end', async () => {
+          if (voucherIds.length > 0) {
+            await this.prisma.voucher.updateMany({
+              where: { id: { in: voucherIds } },
+              data: { exportedAt: new Date() },
+            });
+          }
+          resolve(Buffer.concat(chunks));
+        });
 
         const qrSize = Math.min(doc.page.width - 80, 400);
 
@@ -120,11 +133,14 @@ export class QrService {
     campaignId: number,
     brandId?: number,
     status?: string,
+    exported?: string,
   ): Promise<Buffer> {
     const where: any = { campaignId };
     if (brandId) where.brandId = brandId;
     if (status) where.status = status;
     else where.status = 'FREE';
+    if (exported === 'true') where.exportedAt = { not: null };
+    else if (exported === 'false') where.exportedAt = null;
 
     const vouchers = await this.prisma.voucher.findMany({
       where,
@@ -132,13 +148,23 @@ export class QrService {
       orderBy: { code: 'asc' },
     });
 
+    const voucherIds = vouchers.map((v) => v.id);
+
     return new Promise(async (resolve, reject) => {
       try {
         const archive = archiver('zip', { zlib: { level: 5 } });
         const chunks: Buffer[] = [];
 
         archive.on('data', (chunk: Buffer) => chunks.push(chunk));
-        archive.on('end', () => resolve(Buffer.concat(chunks)));
+        archive.on('end', async () => {
+          if (voucherIds.length > 0) {
+            await this.prisma.voucher.updateMany({
+              where: { id: { in: voucherIds } },
+              data: { exportedAt: new Date() },
+            });
+          }
+          resolve(Buffer.concat(chunks));
+        });
         archive.on('error', reject);
 
         for (const v of vouchers) {

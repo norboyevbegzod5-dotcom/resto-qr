@@ -142,8 +142,9 @@ export class AdminController {
     @Query('brandId') brandId?: number,
     @Query('status') status?: string,
     @Query('code') code?: string,
+    @Query('exported') exported?: string,
   ) {
-    return this.vouchersService.findAll({ page, limit, campaignId, brandId, status, code });
+    return this.vouchersService.findAll({ page, limit, campaignId, brandId, status, code, exported });
   }
 
   @Post('vouchers/generate')
@@ -194,12 +195,14 @@ export class AdminController {
     @Query('campaignId', ParseIntPipe) campaignId: number,
     @Query('brandId') brandId?: number,
     @Query('status') status?: string,
+    @Query('exported') exported?: string,
     @Res() res?: Response,
   ) {
     const pdf = await this.qrService.generateBatchPdf(
       campaignId,
       brandId ? +brandId : undefined,
       status,
+      exported,
     );
     res!.setHeader('Content-Type', 'application/pdf');
     res!.setHeader('Content-Disposition', 'attachment; filename=vouchers-qr.pdf');
@@ -211,12 +214,14 @@ export class AdminController {
     @Query('campaignId', ParseIntPipe) campaignId: number,
     @Query('brandId') brandId?: number,
     @Query('status') status?: string,
+    @Query('exported') exported?: string,
     @Res() res?: Response,
   ) {
     const zip = await this.qrService.generateBatchZip(
       campaignId,
       brandId ? +brandId : undefined,
       status,
+      exported,
     );
     res!.setHeader('Content-Type', 'application/zip');
     res!.setHeader('Content-Disposition', 'attachment; filename=vouchers-qr.zip');

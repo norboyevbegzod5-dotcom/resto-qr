@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 export default function VouchersPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
-  const [filters, setFilters] = useState({ campaignId: '', brandId: '', status: '', code: '' });
+  const [filters, setFilters] = useState({ campaignId: '', brandId: '', status: '', code: '', exported: '' });
   const [showGenerate, setShowGenerate] = useState(false);
   const [genForm, setGenForm] = useState({ campaignId: '', brandId: '', count: 100 });
 
@@ -32,6 +32,7 @@ export default function VouchersPage() {
           brandId: filters.brandId || undefined,
           status: filters.status || undefined,
           code: filters.code || undefined,
+          exported: filters.exported || undefined,
         })
         .then((r) => r.data),
   });
@@ -58,6 +59,7 @@ export default function VouchersPage() {
         campaignId: +filters.campaignId,
         brandId: filters.brandId ? +filters.brandId : undefined,
         status: filters.status || undefined,
+        exported: filters.exported || undefined,
       });
       const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
       const a = document.createElement('a');
@@ -81,6 +83,7 @@ export default function VouchersPage() {
         campaignId: +filters.campaignId,
         brandId: filters.brandId ? +filters.brandId : undefined,
         status: filters.status || undefined,
+        exported: filters.exported || undefined,
       });
       const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/zip' }));
       const a = document.createElement('a');
@@ -301,6 +304,15 @@ export default function VouchersPage() {
             <option value="USED">Использован</option>
             <option value="DELETED">Удалён</option>
           </select>
+          <select
+            value={filters.exported}
+            onChange={(e) => { setFilters((f) => ({ ...f, exported: e.target.value })); setPage(1); }}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+          >
+            <option value="">Все QR</option>
+            <option value="false">Не скачаны</option>
+            <option value="true">Скачаны</option>
+          </select>
         </div>
 
         <div className="overflow-x-auto">
@@ -314,13 +326,14 @@ export default function VouchersPage() {
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Статус</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Активирован</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">QR</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Скачан</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {isLoading ? (
-                <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500">Загрузка...</td></tr>
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-500">Загрузка...</td></tr>
               ) : data?.data?.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500">Ваучеры не найдены</td></tr>
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-500">Ваучеры не найдены</td></tr>
               ) : (
                 data?.data?.map((v: any) => (
                   <tr key={v.id} className="hover:bg-gray-50">
@@ -346,6 +359,9 @@ export default function VouchersPage() {
                       >
                         <QrCode size={16} />
                       </button>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {v.exportedAt ? new Date(v.exportedAt).toLocaleDateString('ru-RU') : '—'}
                     </td>
                   </tr>
                 ))

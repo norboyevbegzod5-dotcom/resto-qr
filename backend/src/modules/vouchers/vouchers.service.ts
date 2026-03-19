@@ -70,8 +70,9 @@ export class VouchersService {
     brandId?: number;
     status?: string;
     code?: string;
+    exported?: string;
   }) {
-    const { page = 1, limit = 20, campaignId, brandId, status, code } = params;
+    const { page = 1, limit = 20, campaignId, brandId, status, code, exported } = params;
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -79,6 +80,8 @@ export class VouchersService {
     if (brandId) where.brandId = brandId;
     if (status) where.status = status;
     if (code) where.code = { contains: code, mode: 'insensitive' };
+    if (exported === 'true') where.exportedAt = { not: null };
+    else if (exported === 'false') where.exportedAt = null;
 
     const [vouchers, total] = await Promise.all([
       this.prisma.voucher.findMany({
