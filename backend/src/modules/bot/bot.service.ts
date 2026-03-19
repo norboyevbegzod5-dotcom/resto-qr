@@ -524,45 +524,53 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
   // ── Акция ──
 
-  private readonly PROMO_TEXT_RU = `🎁 Розыгрыш автомобиля 
+  private readonly PROMO_TEXT_RU = `🎁 Мы дарим автомобиль 
 
-Друзья, мы разыгрываем автомобиль Forthing S7!
-Рестораны Uzbekona, Dolcetta и Resto совместно с Pepsi, Grace Travel и Forthing запускают масштабную акцию.
+Рестораны Uzbekona, Dolcetta и Resto совместно с Pepsi, BYD и Grace Travel подготовили для вас самый масштабный розыгрыш года. 
 
-🎁 Помимо главного приза вас ждут:
-• Путёвка в Дубай на двоих
-• Путёвка в Египет на двоих
-• 2 iPhone 17 Pro Max
-• Сертификаты от наших партнёров
+Главный приз — автомобиль BYD Champion.
+А ещё — путёвки мечты на двоих в Дубай и Египет, iPhone 17 Pro Max и ценные сертификаты от наших партнёров.
 
-📌 Как участвовать:
-1️⃣ Посетите каждый ресторан — Uzbekona, Dolcetta, Resto — и сделайте в нём заказ на сумму не менее 300 000 сум, чтобы получить билет. Каждый ресторан выдаёт свои билеты, и для участия необходимо собрать хотя бы один билет с каждого заведения.
+📌 Как принять участие?
 
-2️⃣ Общая сумма билетов для участия в розыгрыше должна быть не менее 10. Все билеты нужно активировать в соответствующем Telegram-боте каждого ресторана: сначала зарегистрируйтесь в боте, затем отсканируйте QR-код с билета. В розыгрыше участвуют только активированные билеты.
+• Посетите рестораны Uzbekona, Dolcetta и Resto
+• При оформлении заказа добавьте напиток Pepsi
+• За каждые 300 000 сум в чеке получайте один билет
+• Обязательно посетите каждый ресторан хотя бы по одному разу
+• Отправляйте фото чека в наш Telegram-бот и сразу активируйте полученный билет
 
-3️⃣ Чем больше билетов вы активируете, тем выше ваши шансы на победу.
+Важно собрать минимум 10 активированных билетов.
+После этого вы автоматически становитесь участником розыгрыша.
 
-Приходите за любимыми вкусами — возможно, именно ваш визит станет счастливым.`;
+Чем больше активированных билетов — тем выше ваши шансы.
 
-  private readonly PROMO_TEXT_UZ = `🎁 Avtomobil o'yini 
+🥤 Один напиток может изменить всё
 
-Do'stlar, Forthing S7 avtomobilini o'yin qilamiz!
-Uzbekona, Dolcetta va Resto restoranlari Pepsi, Grace Travel va Forthing bilan birga katta aksiyani boshlayapti.
+Готовы испытать удачу?`;
 
-🎁 Asosiy sovrin bilan birga sizni kutayapti:
-• Dubayga juftlik sayohat
-• Misrga juftlik sayohat
-• 2 ta iPhone 17 Pro Max
-• Hamkorlarimizdan sertifikatlar
+  private readonly PROMO_TEXT_UZ = `🎁 Avtomobil sovg'a qilamiz 
 
-📌 Qanday qatnashish:
-1️⃣ Har bir restoronga — Uzbekona, Dolcetta, Resto — tashrif buyuring va kamida 300 000 so'm buyurtma bering, bilet olish uchun. Har bir restoran o'z biletlarini beradi, ishtirok etish uchun har bir muassasadan kamida bitta bilet yig'ish kerak.
+Uzbekona, Dolcetta va Resto restoranlari Pepsi, BYD va Grace Travel bilan birga siz uchun yilning eng katta o'yinini tayyorladilar. 
 
-2️⃣ O'yinda qatnashish uchun biletlar yig'indisi kamida 10 bo'lishi kerak. Barcha biletlarni har bir restoronga tegishli Telegram-botda faollashtirish kerak: avval botda ro'yxatdan o'ting, keyin biletdagi QR-kodni skanerlang. O'yinda faqat faollashtirilgan biletlar qatnashadi.
+Asosiy sovrin — BYD Champion avtomobili.
+Va yana — Dubay va Misrga juftlik sayohatlar, iPhone 17 Pro Max va hamkorlarimizdan qimmatbaho sertifikatlar.
 
-3️⃣ Qancha ko'p bilet faollashtirsangiz, g'alaba qozonish imkoniyatingiz shunchalik yuqori.
+📌 Qanday qatnashish?
 
-Sevimli taomlar uchun keling — ehtimol, aynan sizning tashrifingiz baxtli bo'ladi.`;
+• Uzbekona, Dolcetta va Resto restoranlariga tashrif buyuring
+• Buyurtma berishda Pepsi ichimligini qo'shing
+• Har 300 000 so'm uchun bitta bilet oling
+• Har bir restoronga kamida bir marta tashrif buyurish majburiy
+• Chek rasmini Telegram-botimizga yuboring va darhol olingan biletdan foydalaning
+
+Kamida 10 ta faollashtirilgan bilet yig'ish muhim.
+Shundan so'ng siz avtomatik ravishda o'yinda qatnashuvchiga aylanasiz.
+
+Qancha ko'p faollashtirilgan bilet — shunchalik yuqori imkoniyatlar.
+
+🥤 Bitta ichimlik hamma narsani o'zgartirishi mumkin
+
+Omadni sinab ko'rishga tayyormisiz?`;
 
   private async handlePromo(ctx: Context) {
     const chatId = ctx.from!.id.toString();
