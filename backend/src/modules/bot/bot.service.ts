@@ -400,8 +400,8 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
     if (payload && payload.startsWith('CODE_')) {
       const code = payload.replace('CODE_', '');
-      await this.activateVoucherForUser(ctx, chatId, code, name, user.phone);
-      await this.sendMainMenu(ctx, user.botLanguage);
+      const askedForReceipt = await this.activateVoucherForUser(ctx, chatId, code, name, user.phone);
+      if (!askedForReceipt) await this.sendMainMenu(ctx, user.botLanguage);
       return;
     }
 
@@ -439,7 +439,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
   // ── Активация кода ──
 
-  private async activateVoucherForUser(ctx: Context, chatId: string, code: string, name?: string, phone?: string | null) {
+  private async activateVoucherForUser(ctx: Context, chatId: string, code: string, name?: string, phone?: string | null): Promise<boolean> {
     try {
       const result = await this.vouchersService.activateCode(chatId, code, name, phone || undefined);
       const brandList = result.brands.map((b) => `  • ${b.brand}: ${b.count}`).join('\n');
@@ -465,6 +465,16 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       const msg = `✅ Код ${result.code} успешно активирован!\n\n📊 Ваши коды: ${result.totalVouchers}\n📋 Бренды:\n${brandList}\n\n${statusMsg}`;
 
       await ctx.reply(msg);
+
+      const user = await this.usersService.findOrCreateByChatId(chatId);
+      const lang = user.botLanguage || 'RU';
+      await this.usersService.updateBotStep(chatId, 'AWAITING_RECEIPT');
+      await ctx.reply(
+        lang === 'UZ'
+          ? '📷 Chek rasmini yuboring (foto)'
+          : '📷 Отправьте фото чека',
+      );
+      return true;
     } catch (e: any) {
       const errData = e?.response;
       if (errData?.error === 'INVALID_CODE') {
@@ -476,6 +486,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       } else {
         await ctx.reply('❌ Произошла ошибка при активации кода.');
       }
+      return false;
     }
   }
 
@@ -721,9 +732,9 @@ Omadni sinab ko'rishga tayyormisiz?`;
       const lang = user.botLanguage || 'RU';
 
       if (user.pendingVoucherCode) {
-        await this.activateVoucherForUser(ctx, chatId, user.pendingVoucherCode, name, phone);
+        const askedForReceipt = await this.activateVoucherForUser(ctx, chatId, user.pendingVoucherCode, name, phone);
         await this.usersService.clearPendingVoucherCode(chatId);
-        await this.sendMainMenu(ctx, lang);
+        if (!askedForReceipt) await this.sendMainMenu(ctx, lang);
       } else {
         await ctx.reply(
           lang === 'UZ' ? '✅ Raqamingiz saqlandi!' : '✅ Номер сохранён!',
