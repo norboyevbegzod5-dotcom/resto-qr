@@ -88,18 +88,22 @@ export class QrService {
 
         const qrSize = Math.min(doc.page.width - 80, 400);
 
+        const qrPngs = await Promise.all(
+          vouchers.map((v) =>
+            QRCode.toBuffer(this.getDeepLink(v.code), {
+              type: 'png',
+              width: qrSize,
+              margin: 1,
+              errorCorrectionLevel: 'M',
+            }),
+          ),
+        );
+
         for (let i = 0; i < vouchers.length; i++) {
           if (i > 0) doc.addPage();
 
           const v = vouchers[i];
-          const url = this.getDeepLink(v.code);
-          const qrPng = await QRCode.toBuffer(url, {
-            type: 'png',
-            width: qrSize,
-            margin: 1,
-            errorCorrectionLevel: 'M',
-          });
-
+          const qrPng = qrPngs[i];
           const qrX = (doc.page.width - qrSize) / 2;
           const qrY = (doc.page.height - qrSize) / 2 - 60;
 
@@ -167,9 +171,9 @@ export class QrService {
         });
         archive.on('error', reject);
 
-        for (const v of vouchers) {
-          const png = await this.generateQrPng(v.code);
-          archive.append(png, { name: `${v.brand.name}_${v.code}.png` });
+        const pngs = await Promise.all(vouchers.map((v) => this.generateQrPng(v.code)));
+        for (let i = 0; i < vouchers.length; i++) {
+          archive.append(pngs[i], { name: `${vouchers[i].brand.name}_${vouchers[i].code}.png` });
         }
 
         await archive.finalize();
