@@ -2,20 +2,29 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { receiptsApi } from '../api/endpoints';
 import api from '../api/client';
-import { Search, Receipt, Phone, User } from 'lucide-react';
+import { Search, Receipt, Phone, User, ChevronLeft, ChevronRight } from 'lucide-react';
+
+const PAGE_SIZE = 50;
 
 export default function ReceiptsPage() {
   const [phone, setPhone] = useState('');
   const [searchPhone, setSearchPhone] = useState('');
+  const [page, setPage] = useState(1);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['receipts', searchPhone],
+    queryKey: ['receipts', searchPhone, page],
     queryFn: () =>
-      receiptsApi.getAll({ phone: searchPhone || undefined, limit: 50 }).then((r) => r.data),
+      receiptsApi.getAll({ phone: searchPhone || undefined, page, limit: PAGE_SIZE }).then((r) => r.data),
   });
 
   const receipts = data?.data || [];
   const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const handleSearch = () => {
+    setSearchPhone(phone);
+    setPage(1);
+  };
 
   return (
     <div>
@@ -34,13 +43,13 @@ export default function ReceiptsPage() {
                 placeholder="998901234567"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && setSearchPhone(phone)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>
           </div>
           <button
-            onClick={() => setSearchPhone(phone)}
+            onClick={handleSearch}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition"
           >
             <Search size={16} /> Найти
@@ -48,8 +57,31 @@ export default function ReceiptsPage() {
         </div>
       </div>
 
-      <div className="text-sm text-gray-500 mb-4">
-        Найдено: {total} чеков
+      <div className="flex items-center justify-between mb-4">
+        <div className="text-sm text-gray-500">
+          Найдено: {total} чеков
+        </div>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="p-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <span className="text-sm text-gray-700 min-w-[80px] text-center">
+              {page} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="p-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition"
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        )}
       </div>
 
       {isLoading ? (
@@ -59,11 +91,35 @@ export default function ReceiptsPage() {
           {searchPhone ? 'Чеки по запросу не найдены' : 'Чеков пока нет'}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {receipts.map((r: any) => (
-            <ReceiptCard key={r.id} receipt={r} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {receipts.map((r: any) => (
+              <ReceiptCard key={r.id} receipt={r} />
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-6">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="p-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <span className="text-sm text-gray-700 min-w-[80px] text-center">
+                {page} / {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="p-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
