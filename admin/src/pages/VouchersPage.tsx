@@ -1,15 +1,19 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { vouchersApi, brandsApi, campaignsApi } from '../api/endpoints';
-import { Plus, Download, X, QrCode, FileDown, Trash2, Archive } from 'lucide-react';
+import { Plus, Download, X, QrCode, FileDown, Trash2, Archive, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+const PER_PAGE_OPTIONS = [25, 50, 100] as const;
 
 export default function VouchersPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState<number>(25);
   const [filters, setFilters] = useState({ campaignId: '', brandId: '', status: '', code: '', exported: '' });
   const [showGenerate, setShowGenerate] = useState(false);
   const [genForm, setGenForm] = useState({ campaignId: '', brandId: '', count: 100 });
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   const { data: brands = [] } = useQuery({
     queryKey: ['brands'],
@@ -22,12 +26,12 @@ export default function VouchersPage() {
   });
 
   const { data, isLoading } = useQuery({
-    queryKey: ['vouchers', page, filters],
+    queryKey: ['vouchers', page, perPage, filters],
     queryFn: () =>
       vouchersApi
         .getAll({
           page,
-          limit: 20,
+          limit: perPage,
           campaignId: filters.campaignId || undefined,
           brandId: filters.brandId || undefined,
           status: filters.status || undefined,
@@ -36,6 +40,51 @@ export default function VouchersPage() {
         })
         .then((r) => r.data),
   });
+
+  const vouchers: any[] = data?.data || [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
+
+  const pageIds = useMemo(() => new Set(vouchers.map((v: any) => v.id)), [vouchers]);
+  const allPageSelected = vouchers.length > 0 && vouchers.every((v: any) => selectedIds.has(v.id));
+  const someSelected = selectedIds.size > 0;
+
+  const toggleOne = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const togglePage = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allPageSelected) {
+        pageIds.forEach((id) => next.delete(id));
+      } else {
+        pageIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const selectedBrandName = useMemo(() => {
+    if (!filters.brandId) return '';
+    const b = brands.find((br: any) => String(br.id) === filters.brandId);
+    return b?.name || '';
+  }, [filters.brandId, brands]);
+
+  const makeFileName = (ext: string) => {
+    const parts: string[] = [];
+    if (selectedBrandName) parts.push(selectedBrandName);
+    else parts.push('vouchers');
+    parts.push(new Date().toISOString().slice(0, 10));
+    return `${parts.join('_')}.${ext}`;
+  };
 
   const generateMutation = useMutation({
     mutationFn: (data: { campaignId: number; brandId: number; count: number }) =>
@@ -49,51 +98,59 @@ export default function VouchersPage() {
     onError: () => toast.error('Ошибка генерации'),
   });
 
-  const handleExportQrPdf = async () => {
-    if (!filters.campaignId) {
+  const downloadBlob = (blobData: any, type: string, filename: string) => {
+    const url = window.URL.createObjectURL(new Blob([blobData], { type }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleExportQr = async (format: 'pdf' | 'zip', mode: 'selected' | 'filter') => {
+    const ids = mode === 'selected' ? Array.from(selectedIds) : undefined;
+
+    if (mode === 'filter' && !filters.campaignId) {
       toast.error('Выберите кампанию для экспорта QR');
       return;
     }
+    if (mode === 'selected' && (!ids || ids.length === 0)) {
+      toast.error('Выберите ваучеры для скачивания');
+      return;
+    }
+
     try {
-      const res = await vouchersApi.exportQrPdf({
-        campaignId: +filters.campaignId,
+      const params = {
+        campaignId: filters.campaignId ? +filters.campaignId : undefined,
         brandId: filters.brandId ? +filters.brandId : undefined,
         status: filters.status || undefined,
         exported: filters.exported || undefined,
-      });
-      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'vouchers-qr.pdf';
-      a.click();
-      window.URL.revokeObjectURL(url);
-      toast.success('QR PDF экспортирован');
+        ids,
+      };
+
+      const res = format === 'pdf'
+        ? await vouchersApi.exportQrPdf(params)
+        : await vouchersApi.exportQrZip(params);
+
+      const mimeType = format === 'pdf' ? 'application/pdf' : 'application/zip';
+      downloadBlob(res.data, mimeType, makeFileName(format));
+      queryClient.invalidateQueries({ queryKey: ['vouchers'] });
+      toast.success(`QR ${format.toUpperCase()} экспортирован (${mode === 'selected' ? ids!.length : 'все по фильтру'})`);
     } catch {
-      toast.error('Ошибка экспорта QR PDF');
+      toast.error(`Ошибка экспорта QR ${format.toUpperCase()}`);
     }
   };
 
-  const handleExportQrZip = async () => {
-    if (!filters.campaignId) {
-      toast.error('Выберите кампанию для экспорта QR');
-      return;
-    }
+  const handleExportCsv = async () => {
     try {
-      const res = await vouchersApi.exportQrZip({
-        campaignId: +filters.campaignId,
-        brandId: filters.brandId ? +filters.brandId : undefined,
-        status: filters.status || undefined,
-        exported: filters.exported || undefined,
+      const res = await vouchersApi.exportCsv({
+        campaignId: filters.campaignId || undefined,
+        brandId: filters.brandId || undefined,
       });
-      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/zip' }));
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'vouchers-qr.zip';
-      a.click();
-      window.URL.revokeObjectURL(url);
-      toast.success('QR PNG (ZIP) экспортирован');
+      downloadBlob(res.data, 'text/csv', makeFileName('csv'));
+      toast.success('CSV экспортирован');
     } catch {
-      toast.error('Ошибка экспорта QR ZIP');
+      toast.error('Ошибка экспорта');
     }
   };
 
@@ -112,24 +169,6 @@ export default function VouchersPage() {
     }
   };
 
-  const handleExport = async () => {
-    try {
-      const res = await vouchersApi.exportCsv({
-        campaignId: filters.campaignId || undefined,
-        brandId: filters.brandId || undefined,
-      });
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'vouchers.csv';
-      a.click();
-      window.URL.revokeObjectURL(url);
-      toast.success('CSV экспортирован');
-    } catch {
-      toast.error('Ошибка экспорта');
-    }
-  };
-
   const handleGenerate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!genForm.campaignId || !genForm.brandId) {
@@ -143,7 +182,9 @@ export default function VouchersPage() {
     });
   };
 
-  const totalPages = data ? Math.ceil(data.total / data.limit) : 1;
+  const setPageSafe = (p: number) => {
+    setPage(Math.max(1, Math.min(totalPages, p)));
+  };
 
   const statusLabel = (status: string) => {
     switch (status) {
@@ -186,19 +227,19 @@ export default function VouchersPage() {
             <Trash2 size={16} /> Удалить все
           </button>
           <button
-            onClick={handleExport}
+            onClick={handleExportCsv}
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition"
           >
             <Download size={16} /> CSV
           </button>
           <button
-            onClick={handleExportQrPdf}
+            onClick={() => handleExportQr('pdf', 'filter')}
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition"
           >
             <FileDown size={16} /> QR PDF
           </button>
           <button
-            onClick={handleExportQrZip}
+            onClick={() => handleExportQr('zip', 'filter')}
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition"
           >
             <Archive size={16} /> QR PNG
@@ -265,17 +306,18 @@ export default function VouchersPage() {
       )}
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div className="p-4 border-b border-gray-200 flex flex-wrap gap-3">
+        {/* Filters */}
+        <div className="p-4 border-b border-gray-200 flex flex-wrap gap-3 items-center">
           <input
             type="text"
             placeholder="Поиск по коду..."
             value={filters.code}
-            onChange={(e) => { setFilters((f) => ({ ...f, code: e.target.value })); setPage(1); }}
+            onChange={(e) => { setFilters((f) => ({ ...f, code: e.target.value })); setPage(1); clearSelection(); }}
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none min-w-[150px]"
           />
           <select
             value={filters.campaignId}
-            onChange={(e) => { setFilters((f) => ({ ...f, campaignId: e.target.value })); setPage(1); }}
+            onChange={(e) => { setFilters((f) => ({ ...f, campaignId: e.target.value })); setPage(1); clearSelection(); }}
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
           >
             <option value="">Все кампании</option>
@@ -285,7 +327,7 @@ export default function VouchersPage() {
           </select>
           <select
             value={filters.brandId}
-            onChange={(e) => { setFilters((f) => ({ ...f, brandId: e.target.value })); setPage(1); }}
+            onChange={(e) => { setFilters((f) => ({ ...f, brandId: e.target.value })); setPage(1); clearSelection(); }}
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
           >
             <option value="">Все бренды</option>
@@ -295,7 +337,7 @@ export default function VouchersPage() {
           </select>
           <select
             value={filters.status}
-            onChange={(e) => { setFilters((f) => ({ ...f, status: e.target.value })); setPage(1); }}
+            onChange={(e) => { setFilters((f) => ({ ...f, status: e.target.value })); setPage(1); clearSelection(); }}
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
           >
             <option value="">Все статусы</option>
@@ -306,19 +348,41 @@ export default function VouchersPage() {
           </select>
           <select
             value={filters.exported}
-            onChange={(e) => { setFilters((f) => ({ ...f, exported: e.target.value })); setPage(1); }}
+            onChange={(e) => { setFilters((f) => ({ ...f, exported: e.target.value })); setPage(1); clearSelection(); }}
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
           >
             <option value="">Все QR</option>
             <option value="false">Не скачаны</option>
             <option value="true">Скачаны</option>
           </select>
+
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-xs text-gray-500">Показать:</span>
+            {PER_PAGE_OPTIONS.map((n) => (
+              <button
+                key={n}
+                onClick={() => { setPerPage(n); setPage(1); clearSelection(); }}
+                className={`px-2.5 py-1 text-xs rounded-md border transition ${perPage === n ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
         </div>
 
+        {/* Table */}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 text-left">
+                <th className="px-4 py-3 w-10">
+                  <input
+                    type="checkbox"
+                    checked={allPageSelected}
+                    onChange={togglePage}
+                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                  />
+                </th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Код</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Бренд</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Кампания</th>
@@ -331,12 +395,20 @@ export default function VouchersPage() {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {isLoading ? (
-                <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-500">Загрузка...</td></tr>
-              ) : data?.data?.length === 0 ? (
-                <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-500">Ваучеры не найдены</td></tr>
+                <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-500">Загрузка...</td></tr>
+              ) : vouchers.length === 0 ? (
+                <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-500">Ваучеры не найдены</td></tr>
               ) : (
-                data?.data?.map((v: any) => (
-                  <tr key={v.id} className="hover:bg-gray-50">
+                vouchers.map((v: any) => (
+                  <tr key={v.id} className={`hover:bg-gray-50 ${selectedIds.has(v.id) ? 'bg-indigo-50/50' : ''}`}>
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(v.id)}
+                        onChange={() => toggleOne(v.id)}
+                        className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                      />
+                    </td>
                     <td className="px-4 py-3 text-sm font-mono font-medium text-gray-900">{v.code}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{v.brand?.name}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{v.campaign?.title}</td>
@@ -370,28 +442,132 @@ export default function VouchersPage() {
           </table>
         </div>
 
+        {/* Pagination */}
         <div className="p-4 border-t border-gray-200 flex items-center justify-between">
           <span className="text-sm text-gray-500">
-            Страница {page} из {totalPages} (всего {data?.total ?? 0})
+            Всего: {total}
           </span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page <= 1}
-              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm disabled:opacity-50 hover:bg-gray-50"
-            >
-              Назад
-            </button>
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page >= totalPages}
-              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm disabled:opacity-50 hover:bg-gray-50"
-            >
-              Вперёд
-            </button>
-          </div>
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPageSafe} />
         </div>
       </div>
+
+      {/* Selection toolbar */}
+      {someSelected && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white rounded-xl shadow-2xl px-5 py-3 flex items-center gap-4 z-50 animate-in">
+          <div className="flex items-center gap-2">
+            <Check size={16} className="text-indigo-400" />
+            <span className="text-sm font-medium">Выбрано: {selectedIds.size}</span>
+          </div>
+          <div className="w-px h-6 bg-gray-700" />
+          <button
+            onClick={() => handleExportQr('pdf', 'selected')}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm transition"
+          >
+            <FileDown size={14} /> PDF
+          </button>
+          <button
+            onClick={() => handleExportQr('zip', 'selected')}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm transition"
+          >
+            <Archive size={14} /> PNG
+          </button>
+          <div className="w-px h-6 bg-gray-700" />
+          <button
+            onClick={clearSelection}
+            className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-gray-800 rounded-lg text-sm text-gray-400 hover:text-white transition"
+          >
+            <X size={14} /> Сбросить
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Pagination({ page, totalPages, onPageChange }: { page: number; totalPages: number; onPageChange: (p: number) => void }) {
+  const [inputValue, setInputValue] = useState('');
+
+  const getPageNumbers = (): (number | '...')[] => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+
+    const pages: (number | '...')[] = [1];
+
+    if (page > 3) pages.push('...');
+
+    const start = Math.max(2, page - 1);
+    const end = Math.min(totalPages - 1, page + 1);
+    for (let i = start; i <= end; i++) pages.push(i);
+
+    if (page < totalPages - 2) pages.push('...');
+
+    if (totalPages > 1) pages.push(totalPages);
+
+    return pages;
+  };
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <button
+        onClick={() => onPageChange(page - 1)}
+        disabled={page <= 1}
+        className="p-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition"
+      >
+        <ChevronLeft size={16} />
+      </button>
+
+      {getPageNumbers().map((p, i) =>
+        p === '...' ? (
+          <span key={`dots-${i}`} className="px-1 text-gray-400 text-sm">...</span>
+        ) : (
+          <button
+            key={p}
+            onClick={() => onPageChange(p)}
+            className={`min-w-[32px] h-8 rounded-lg text-sm font-medium transition ${
+              p === page
+                ? 'bg-indigo-600 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            {p}
+          </button>
+        ),
+      )}
+
+      <button
+        onClick={() => onPageChange(page + 1)}
+        disabled={page >= totalPages}
+        className="p-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition"
+      >
+        <ChevronRight size={16} />
+      </button>
+
+      {totalPages > 7 && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const num = parseInt(inputValue, 10);
+            if (num >= 1 && num <= totalPages) {
+              onPageChange(num);
+              setInputValue('');
+            }
+          }}
+          className="ml-2 flex items-center gap-1.5"
+        >
+          <input
+            type="text"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value.replace(/\D/g, ''))}
+            placeholder="№"
+            className="w-12 px-2 py-1 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-indigo-500 outline-none"
+          />
+          <button
+            type="submit"
+            className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 transition"
+          >
+            Перейти
+          </button>
+        </form>
+      )}
     </div>
   );
 }

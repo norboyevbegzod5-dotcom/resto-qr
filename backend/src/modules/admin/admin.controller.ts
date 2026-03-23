@@ -209,6 +209,23 @@ export class AdminController {
     res!.send(pdf);
   }
 
+  @Post('vouchers/qr-batch')
+  async postQrBatch(
+    @Body() body: { campaignId?: number; brandId?: number; status?: string; exported?: string; ids?: number[] },
+    @Res() res: Response,
+  ) {
+    const pdf = await this.qrService.generateBatchPdf(
+      body.campaignId || 0,
+      body.brandId,
+      body.status,
+      body.exported,
+      body.ids,
+    );
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=vouchers-qr.pdf');
+    res.send(pdf);
+  }
+
   @Get('vouchers/qr-batch-zip')
   async getQrBatchZip(
     @Query('campaignId', ParseIntPipe) campaignId: number,
@@ -226,6 +243,23 @@ export class AdminController {
     res!.setHeader('Content-Type', 'application/zip');
     res!.setHeader('Content-Disposition', 'attachment; filename=vouchers-qr.zip');
     res!.send(zip);
+  }
+
+  @Post('vouchers/qr-batch-zip')
+  async postQrBatchZip(
+    @Body() body: { campaignId?: number; brandId?: number; status?: string; exported?: string; ids?: number[] },
+    @Res() res: Response,
+  ) {
+    const zip = await this.qrService.generateBatchZip(
+      body.campaignId || 0,
+      body.brandId,
+      body.status,
+      body.exported,
+      body.ids,
+    );
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', 'attachment; filename=vouchers-qr.zip');
+    res.send(zip);
   }
 
   // ── Lottery ──
