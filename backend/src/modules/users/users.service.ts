@@ -45,53 +45,47 @@ export class UsersService {
       ];
     }
 
-    const [users, total] = await Promise.all([
-      this.prisma.user.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          vouchers: {
-            where: campaignId ? { campaignId, status: 'ACTIVATED' } : { status: 'ACTIVATED' },
-            include: { brand: true },
-          },
-        },
-      }),
-      this.prisma.user.count({ where }),
-    ]);
+    const voucherWhere = campaignId ? { campaignId, status: 'ACTIVATED' as const } : { status: 'ACTIVATED' as const };
 
     const activeCampaign = campaignId
       ? await this.prisma.campaign.findUnique({ where: { id: campaignId } })
       : await this.prisma.campaign.findFirst({ where: { isActive: true } });
 
-    const enriched = users.map((user) => {
+    const enrich = (user: any) => {
       const totalVouchers = user.vouchers.length;
-      const brandIds = new Set(user.vouchers.map((v) => v.brandId));
-      const brandCount = brandIds.size;
+      const brandCount = new Set(user.vouchers.map((v: any) => v.brandId)).size;
       const isEligible = activeCampaign
         ? totalVouchers >= activeCampaign.minVouchers && brandCount >= activeCampaign.minBrands
         : false;
-
       return {
-        id: user.id,
-        name: user.name,
-        phone: user.phone,
-        chatId: user.chatId,
-        botLanguage: user.botLanguage,
-        createdAt: user.createdAt,
-        totalVouchers,
-        brandCount,
-        eligible: isEligible,
+        id: user.id, name: user.name, phone: user.phone, chatId: user.chatId,
+        botLanguage: user.botLanguage, createdAt: user.createdAt,
+        totalVouchers, brandCount, eligible: isEligible,
       };
-    });
+    };
 
     if (eligible !== undefined) {
-      const filtered = enriched.filter((u) => u.eligible === eligible);
-      return { data: filtered, total: filtered.length, page: 1, limit: filtered.length || 1 };
+      const allUsers = await this.prisma.user.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        include: { vouchers: { where: voucherWhere, include: { brand: true } } },
+      });
+      const allEnriched = allUsers.map(enrich).filter((u) => u.eligible === eligible);
+      const total = allEnriched.length;
+      const data = allEnriched.slice(skip, skip + limit);
+      return { data, total, page, limit };
     }
 
-    return { data: enriched, total, page, limit };
+    const [users, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where, skip, take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: { vouchers: { where: voucherWhere, include: { brand: true } } },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return { data: users.map(enrich), total, page, limit };
   }
 
   async countEligible(): Promise<number> {
