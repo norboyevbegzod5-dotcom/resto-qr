@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usersApi } from '../api/endpoints';
-import { Search, CheckCircle, XCircle, Trash2, Download } from 'lucide-react';
+import { Search, CheckCircle, XCircle, Trash2, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../api/client';
 
@@ -156,26 +156,82 @@ export default function UsersPage() {
 
         <div className="p-4 border-t border-gray-200 flex items-center justify-between">
           <span className="text-sm text-gray-500">
-            Страница {page} из {totalPages} (всего {data?.total ?? 0})
+            Всего: {data?.total ?? 0}
           </span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page <= 1}
-              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm disabled:opacity-50 hover:bg-gray-50"
-            >
-              Назад
-            </button>
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page >= totalPages}
-              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm disabled:opacity-50 hover:bg-gray-50"
-            >
-              Вперёд
-            </button>
-          </div>
+          <Pagination page={page} totalPages={totalPages} onPageChange={(p) => setPage(Math.max(1, Math.min(totalPages, p)))} />
         </div>
       </div>
+    </div>
+  );
+}
+
+function Pagination({ page, totalPages, onPageChange }: { page: number; totalPages: number; onPageChange: (p: number) => void }) {
+  const [inputValue, setInputValue] = useState('');
+
+  const getPageNumbers = (): (number | '...')[] => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    const pages: (number | '...')[] = [1];
+    if (page > 3) pages.push('...');
+    const start = Math.max(2, page - 1);
+    const end = Math.min(totalPages - 1, page + 1);
+    for (let i = start; i <= end; i++) pages.push(i);
+    if (page < totalPages - 2) pages.push('...');
+    if (totalPages > 1) pages.push(totalPages);
+    return pages;
+  };
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <button
+        onClick={() => onPageChange(page - 1)}
+        disabled={page <= 1}
+        className="p-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition"
+      >
+        <ChevronLeft size={16} />
+      </button>
+      {getPageNumbers().map((p, i) =>
+        p === '...' ? (
+          <span key={`dots-${i}`} className="px-1 text-gray-400 text-sm">...</span>
+        ) : (
+          <button
+            key={p}
+            onClick={() => onPageChange(p)}
+            className={`min-w-[32px] h-8 rounded-lg text-sm font-medium transition ${
+              p === page ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            {p}
+          </button>
+        ),
+      )}
+      <button
+        onClick={() => onPageChange(page + 1)}
+        disabled={page >= totalPages}
+        className="p-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition"
+      >
+        <ChevronRight size={16} />
+      </button>
+      {totalPages > 7 && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const num = parseInt(inputValue, 10);
+            if (num >= 1 && num <= totalPages) { onPageChange(num); setInputValue(''); }
+          }}
+          className="ml-2 flex items-center gap-1.5"
+        >
+          <input
+            type="text"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value.replace(/\D/g, ''))}
+            placeholder="№"
+            className="w-12 px-2 py-1 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-indigo-500 outline-none"
+          />
+          <button type="submit" className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 transition">
+            Перейти
+          </button>
+        </form>
+      )}
     </div>
   );
 }

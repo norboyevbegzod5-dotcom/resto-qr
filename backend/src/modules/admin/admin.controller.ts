@@ -454,15 +454,16 @@ export class AdminController {
 
   @Get('stats')
   async getStats() {
-    const [totalUsers, totalVouchers, activatedVouchers, activeCampaigns, totalBrands] =
+    const [totalUsers, totalVouchers, activatedVouchers, activeCampaigns, totalBrands, eligibleUsers] =
       await Promise.all([
         this.prisma.user.count(),
         this.prisma.voucher.count(),
         this.prisma.voucher.count({ where: { status: 'ACTIVATED' } }),
         this.prisma.campaign.count({ where: { isActive: true } }),
         this.prisma.brand.count(),
+        this.usersService.countEligible(),
       ]);
 
-    return { totalUsers, totalVouchers, activatedVouchers, activeCampaigns, totalBrands };
+    return { totalUsers, totalVouchers, activatedVouchers, activeCampaigns, totalBrands, eligibleUsers };
   }
 }

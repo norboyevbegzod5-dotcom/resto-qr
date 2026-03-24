@@ -86,11 +86,31 @@ export class UsersService {
       };
     });
 
-    const result = eligible !== undefined
-      ? enriched.filter((u) => u.eligible === eligible)
-      : enriched;
+    if (eligible !== undefined) {
+      const filtered = enriched.filter((u) => u.eligible === eligible);
+      return { data: filtered, total: filtered.length, page: 1, limit: filtered.length || 1 };
+    }
 
-    return { data: result, total, page, limit };
+    return { data: enriched, total, page, limit };
+  }
+
+  async countEligible(): Promise<number> {
+    const activeCampaign = await this.prisma.campaign.findFirst({ where: { isActive: true } });
+    if (!activeCampaign) return 0;
+
+    const users = await this.prisma.user.findMany({
+      include: {
+        vouchers: {
+          where: { status: 'ACTIVATED', campaignId: activeCampaign.id },
+          select: { brandId: true },
+        },
+      },
+    });
+
+    return users.filter((u) => {
+      const brandCount = new Set(u.vouchers.map((v) => v.brandId)).size;
+      return u.vouchers.length >= activeCampaign.minVouchers && brandCount >= activeCampaign.minBrands;
+    }).length;
   }
 
   async getUserStats(chatId: string) {

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { statsApi } from '../api/endpoints';
-import { Users, Ticket, Megaphone, Tag, CheckCircle } from 'lucide-react';
+import { Users, Ticket, Megaphone, Tag, CheckCircle, Trophy } from 'lucide-react';
 
 export default function DashboardPage() {
   const { data, isLoading } = useQuery({
@@ -10,6 +10,7 @@ export default function DashboardPage() {
 
   const cards = [
     { label: 'Пользователи', value: data?.totalUsers ?? '—', icon: Users, color: 'bg-blue-500' },
+    { label: 'Участники', value: data?.eligibleUsers ?? '—', icon: Trophy, color: 'bg-amber-500' },
     { label: 'Всего ваучеров', value: data?.totalVouchers ?? '—', icon: Ticket, color: 'bg-purple-500' },
     { label: 'Активировано', value: data?.activatedVouchers ?? '—', icon: CheckCircle, color: 'bg-green-500' },
     { label: 'Активные кампании', value: data?.activeCampaigns ?? '—', icon: Megaphone, color: 'bg-orange-500' },
@@ -23,7 +24,7 @@ export default function DashboardPage() {
       {isLoading ? (
         <div className="text-gray-500">Загрузка...</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5">
           {cards.map((card) => {
             const Icon = card.icon;
             return (
