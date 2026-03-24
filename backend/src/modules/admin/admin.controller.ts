@@ -152,6 +152,12 @@ export class AdminController {
     return this.voucherGenerationService.generate(dto.campaignId, dto.brandId, dto.count);
   }
 
+  @Post('vouchers/generate/stop')
+  async stopGeneration() {
+    this.voucherGenerationService.abort();
+    return { ok: true };
+  }
+
   @Delete('vouchers/all')
   async deleteAllVouchers() {
     await this.prisma.winner.deleteMany();

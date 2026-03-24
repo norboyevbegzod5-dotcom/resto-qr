@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { vouchersApi, brandsApi, campaignsApi } from '../api/endpoints';
-import { Plus, Download, X, QrCode, FileDown, Trash2, Archive, ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import { Plus, Download, X, QrCode, FileDown, Trash2, Archive, ChevronLeft, ChevronRight, Check, Square } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const PER_PAGE_OPTIONS = [25, 50, 100] as const;
@@ -97,6 +97,15 @@ export default function VouchersPage() {
     },
     onError: () => toast.error('Ошибка генерации'),
   });
+
+  const handleStopGeneration = async () => {
+    try {
+      await vouchersApi.stopGenerate();
+      toast.success('Генерация остановлена');
+    } catch {
+      toast.error('Ошибка остановки');
+    }
+  };
 
   const downloadBlob = (blobData: any, type: string, filename: string) => {
     const url = window.URL.createObjectURL(new Blob([blobData], { type }));
@@ -301,6 +310,15 @@ export default function VouchersPage() {
             >
               {generateMutation.isPending ? 'Генерация...' : 'Создать'}
             </button>
+            {generateMutation.isPending && (
+              <button
+                type="button"
+                onClick={handleStopGeneration}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition"
+              >
+                <Square size={14} /> Стоп
+              </button>
+            )}
           </form>
         </div>
       )}

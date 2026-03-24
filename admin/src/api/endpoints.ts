@@ -30,6 +30,7 @@ export const vouchersApi = {
     api.get('/admin/vouchers', { params }),
   generate: (data: { campaignId: number; brandId: number; count: number }) =>
     api.post('/admin/vouchers/generate', data),
+  stopGenerate: () => api.post('/admin/vouchers/generate/stop'),
   exportCsv: (params?: Record<string, any>) =>
     api.get('/admin/vouchers/export', { params, responseType: 'blob' }),
   getQrUrl: (code: string) => `/api/admin/vouchers/qr/${code}`,
