@@ -19,6 +19,7 @@ interface BotInstance {
 export class BotService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(BotService.name);
   private bots: Map<number, BotInstance> = new Map();
+  private healthCheckInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private prisma: PrismaService,
@@ -40,10 +41,23 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
         );
       });
     }
+
+    this.healthCheckInterval = setInterval(() => {
+      this.ensureBotsRunning().catch((e) =>
+        this.logger.error('Health check failed', e),
+      );
+    }, 5 * 60 * 1000);
+    this.logger.log('Bot health check enabled (every 5 min)');
   }
 
   async onModuleDestroy() {
+    if (this.healthCheckInterval) {
+      clearInterval(this.healthCheckInterval);
+    }
     for (const [, bot] of this.bots) {
+      try {
+        await bot.telegraf.telegram.deleteWebhook();
+      } catch {}
       bot.telegraf.stop();
     }
     this.bots.clear();
@@ -176,6 +190,11 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
   async stopBot(botId: number) {
     const instance = this.bots.get(botId);
     if (instance) {
+      try {
+        await instance.telegraf.telegram.deleteWebhook();
+      } catch (e: any) {
+        this.logger.warn(`Failed to delete webhook for "${instance.name}": ${e.message}`);
+      }
       instance.telegraf.stop();
       this.bots.delete(botId);
       this.logger.log(`Bot "${instance.name}" stopped`);
@@ -188,9 +207,58 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     const dbBot = await this.prisma.telegramBot.findUnique({ where: { id: botId } });
     if (!dbBot || !dbBot.isActive) return;
     if (baseUrl) {
-      await this.registerWebhooks(baseUrl);
+      await this.registerSingleWebhook(dbBot, baseUrl);
     } else {
       await this.launchBot(dbBot);
+    }
+  }
+
+  private async registerSingleWebhook(
+    dbBot: { id: number; name: string; token: string; username: string; brandId: number | null; miniAppUrl: string | null },
+    baseUrl: string,
+  ) {
+    const httpAdapter = this.httpAdapterHost.httpAdapter;
+    const expressApp = httpAdapter.getInstance();
+
+    if (!this.webhookRouteRegistered) {
+      expressApp.post('/webhook/bot/:id', async (req: any, res: any) => {
+        const id = parseInt(req.params.id, 10);
+        const instance = this.bots.get(id);
+        if (!instance) {
+          res.status(404).end();
+          return;
+        }
+        try {
+          await instance.telegraf.handleUpdate(req.body, res);
+          if (!res.writableEnded) res.end();
+        } catch (e) {
+          this.logger.error(`Webhook error for bot ${id}: ${(e as Error).message}`);
+          if (!res.writableEnded) res.writeHead(500).end();
+        }
+      });
+      this.webhookRouteRegistered = true;
+    }
+
+    try {
+      const telegraf = new Telegraf(dbBot.token);
+      const instance: BotInstance = {
+        id: dbBot.id,
+        name: dbBot.name,
+        username: dbBot.username,
+        brandId: dbBot.brandId,
+        miniAppUrl: dbBot.miniAppUrl,
+        telegraf,
+      };
+
+      this.registerHandlers(instance);
+      this.bots.set(dbBot.id, instance);
+
+      const url = `${baseUrl.replace(/\/$/, '')}/webhook/bot/${dbBot.id}`;
+      await telegraf.telegram.setWebhook(url);
+      this.logger.log(`Bot "${dbBot.name}" (@${dbBot.username}) webhook at ${url}`);
+    } catch (e: any) {
+      this.logger.error(`Failed to register webhook for "${dbBot.name}": ${e.message}`);
+      throw e;
     }
   }
 
@@ -207,11 +275,20 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     const dbBots = await this.prisma.telegramBot.findMany({
       where: { isActive: true },
     });
+    const baseUrl = process.env.RENDER_EXTERNAL_URL;
 
     for (const dbBot of dbBots) {
       if (!this.bots.has(dbBot.id)) {
         this.logger.log(`Auto-launching bot "${dbBot.name}" (was not running)`);
-        await this.launchBot(dbBot);
+        try {
+          if (baseUrl) {
+            await this.registerSingleWebhook(dbBot, baseUrl);
+          } else {
+            await this.launchBot(dbBot);
+          }
+        } catch (e: any) {
+          this.logger.error(`Failed to auto-launch bot "${dbBot.name}": ${e.message}`);
+        }
       }
     }
   }
@@ -282,6 +359,10 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
   private registerHandlers(bot: BotInstance) {
     const { telegraf } = bot;
+
+    telegraf.catch((err: any) => {
+      this.logger.error(`[${bot.name}] Unhandled Telegraf error: ${err.message}`, err.stack);
+    });
 
     telegraf.start(async (ctx) => {
       try {

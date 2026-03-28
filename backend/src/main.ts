@@ -6,6 +6,14 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 import { AppModule } from './app.module';
 
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception (process kept alive):', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled Rejection (process kept alive):', reason);
+});
+
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 

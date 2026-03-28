@@ -339,7 +339,11 @@ export class AdminController {
       where: { id },
       data: body,
     });
-    await this.botService.restartBot(id);
+    try {
+      await this.botService.restartBot(id);
+    } catch (e: any) {
+      return { ...updated, token: undefined, restartError: e.message || 'Ошибка перезапуска бота' };
+    }
     return updated;
   }
 
