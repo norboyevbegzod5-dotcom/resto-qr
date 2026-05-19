@@ -143,8 +143,9 @@ export class AdminController {
     @Query('status') status?: string,
     @Query('code') code?: string,
     @Query('exported') exported?: string,
+    @Query('phone') phone?: string,
   ) {
-    return this.vouchersService.findAll({ page, limit, campaignId, brandId, status, code, exported });
+    return this.vouchersService.findAll({ page, limit, campaignId, brandId, status, code, exported, phone });
   }
 
   @Post('vouchers/generate')

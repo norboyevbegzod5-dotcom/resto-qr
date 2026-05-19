@@ -10,7 +10,7 @@ export default function VouchersPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState<number>(25);
-  const [filters, setFilters] = useState({ campaignId: '', brandId: '', status: '', code: '', exported: '' });
+  const [filters, setFilters] = useState({ campaignId: '', brandId: '', status: '', code: '', exported: '', phone: '' });
   const [showGenerate, setShowGenerate] = useState(false);
   const [genForm, setGenForm] = useState({ campaignId: '', brandId: '', count: 100 });
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -37,6 +37,7 @@ export default function VouchersPage() {
           status: filters.status || undefined,
           code: filters.code || undefined,
           exported: filters.exported || undefined,
+          phone: filters.phone || undefined,
         })
         .then((r) => r.data),
   });
@@ -331,6 +332,13 @@ export default function VouchersPage() {
             placeholder="Поиск по коду..."
             value={filters.code}
             onChange={(e) => { setFilters((f) => ({ ...f, code: e.target.value })); setPage(1); clearSelection(); }}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none min-w-[150px]"
+          />
+          <input
+            type="text"
+            placeholder="Поиск по телефону..."
+            value={filters.phone}
+            onChange={(e) => { setFilters((f) => ({ ...f, phone: e.target.value })); setPage(1); clearSelection(); }}
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none min-w-[150px]"
           />
           <select
