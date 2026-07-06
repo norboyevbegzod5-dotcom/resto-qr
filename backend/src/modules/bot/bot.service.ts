@@ -54,16 +54,37 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
   private async syncPrimaryBot() {
     const username = process.env.TELEGRAM_BOT_USERNAME || 'resto_restaurantbot';
-    const token = process.env.TELEGRAM_BOT_TOKEN;
-    if (!token) {
-      this.logger.warn(`TELEGRAM_BOT_TOKEN not set — using bot record from database`);
-      return;
-    }
+    const envToken = process.env.TELEGRAM_BOT_TOKEN;
 
     await this.prisma.telegramBot.updateMany({
       where: { username: { not: username } },
       data: { isActive: false },
     });
+
+    const existing = await this.prisma.telegramBot.findUnique({
+      where: { username },
+    });
+
+    if (existing) {
+      if (envToken && existing.token !== envToken) {
+        await this.prisma.telegramBot.update({
+          where: { username },
+          data: { token: envToken, isActive: true },
+        });
+      } else if (!existing.isActive) {
+        await this.prisma.telegramBot.update({
+          where: { username },
+          data: { isActive: true },
+        });
+      }
+      this.logger.log(`Primary bot ready: @${username}`);
+      return;
+    }
+
+    if (!envToken) {
+      this.logger.warn(`Bot @${username} not in database and TELEGRAM_BOT_TOKEN not set`);
+      return;
+    }
 
     const brand = await this.prisma.brand.findFirst({
       where: {
@@ -74,23 +95,17 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       },
     });
 
-    await this.prisma.telegramBot.upsert({
-      where: { username },
-      update: {
-        token,
-        isActive: true,
-        brandId: brand?.id ?? null,
-      },
-      create: {
+    await this.prisma.telegramBot.create({
+      data: {
         name: 'Resto',
-        token,
+        token: envToken,
         username,
         brandId: brand?.id ?? null,
         isActive: true,
       },
     });
 
-    this.logger.log(`Primary bot synced: @${username}`);
+    this.logger.log(`Primary bot created: @${username}`);
   }
 
   async onModuleDestroy() {
