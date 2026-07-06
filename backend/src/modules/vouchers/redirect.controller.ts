@@ -12,17 +12,19 @@ export class RedirectController {
       where: { code },
     });
 
-    let botUsername = 'resto_bot';
+    let botUsername = 'resto_restaurantbot';
 
     if (voucher) {
       const bot = await this.prisma.telegramBot.findFirst({
         where: { brandId: voucher.brandId, isActive: true },
+        orderBy: { updatedAt: 'desc' },
       });
       if (bot) {
         botUsername = bot.username;
       } else {
         const anyBot = await this.prisma.telegramBot.findFirst({
           where: { isActive: true },
+          orderBy: { updatedAt: 'desc' },
         });
         if (anyBot) botUsername = anyBot.username;
       }

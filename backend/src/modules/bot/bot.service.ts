@@ -30,6 +30,8 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   async onModuleInit() {
+    await this.syncPrimaryBot();
+
     const baseUrl = process.env.RENDER_EXTERNAL_URL;
     if (baseUrl) {
       this.logger.log('Using webhooks (RENDER_EXTERNAL_URL set)');
@@ -48,6 +50,47 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       );
     }, 5 * 60 * 1000);
     this.logger.log('Bot health check enabled (every 5 min)');
+  }
+
+  private async syncPrimaryBot() {
+    const username = process.env.TELEGRAM_BOT_USERNAME || 'resto_restaurantbot';
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    if (!token) {
+      this.logger.warn(`TELEGRAM_BOT_TOKEN not set — using bot record from database`);
+      return;
+    }
+
+    await this.prisma.telegramBot.updateMany({
+      where: { username: { not: username } },
+      data: { isActive: false },
+    });
+
+    const brand = await this.prisma.brand.findFirst({
+      where: {
+        OR: [
+          { slug: 'resto' },
+          { name: { equals: 'Resto', mode: 'insensitive' } },
+        ],
+      },
+    });
+
+    await this.prisma.telegramBot.upsert({
+      where: { username },
+      update: {
+        token,
+        isActive: true,
+        brandId: brand?.id ?? null,
+      },
+      create: {
+        name: 'Resto',
+        token,
+        username,
+        brandId: brand?.id ?? null,
+        isActive: true,
+      },
+    });
+
+    this.logger.log(`Primary bot synced: @${username}`);
   }
 
   async onModuleDestroy() {

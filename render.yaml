@@ -16,3 +16,7 @@ services:
         value: production
       - key: RENDER_EXTERNAL_URL
         value: https://resto-qr.onrender.com
+      - key: TELEGRAM_BOT_USERNAME
+        value: resto_restaurantbot
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
