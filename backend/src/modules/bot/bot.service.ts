@@ -56,10 +56,21 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     const username = process.env.TELEGRAM_BOT_USERNAME || 'resto_restaurantbot';
     const envToken = process.env.TELEGRAM_BOT_TOKEN;
 
-    await this.prisma.telegramBot.updateMany({
-      where: { username: { not: username } },
-      data: { isActive: false },
+    const restoBrand = await this.prisma.brand.findFirst({
+      where: {
+        OR: [
+          { slug: 'resto' },
+          { name: { equals: 'Resto', mode: 'insensitive' } },
+        ],
+      },
     });
+
+    if (restoBrand) {
+      await this.prisma.telegramBot.updateMany({
+        where: { brandId: restoBrand.id, username: { not: username } },
+        data: { isActive: false },
+      });
+    }
 
     const existing = await this.prisma.telegramBot.findUnique({
       where: { username },
@@ -261,9 +272,18 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
   async restartBot(botId: number) {
     await this.stopBot(botId);
-    const baseUrl = process.env.RENDER_EXTERNAL_URL;
     const dbBot = await this.prisma.telegramBot.findUnique({ where: { id: botId } });
-    if (!dbBot || !dbBot.isActive) return;
+    if (!dbBot) return;
+
+    if (!dbBot.isActive) {
+      await this.prisma.telegramBot.update({
+        where: { id: botId },
+        data: { isActive: true },
+      });
+      dbBot.isActive = true;
+    }
+
+    const baseUrl = process.env.RENDER_EXTERNAL_URL;
     if (baseUrl) {
       await this.registerSingleWebhook(dbBot, baseUrl);
     } else {
