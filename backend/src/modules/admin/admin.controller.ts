@@ -12,6 +12,7 @@ import { VouchersService } from '../vouchers/vouchers.service';
 import { VoucherGenerationService } from '../vouchers/voucher-generation.service';
 import { QrService } from '../vouchers/qr.service';
 import { BotService } from '../bot/bot.service';
+import { isValidBotToken } from '../bot/brand-bot-config';
 import { NotificationService } from '../notification/notification.service';
 import { CreateBrandDto } from '../brands/dto/create-brand.dto';
 import { CreateCampaignDto } from '../campaigns/dto/create-campaign.dto';
@@ -298,6 +299,7 @@ export class AdminController {
       token: undefined,
       running: runningIds.has(b.id),
       shouldBeRunning: b.isActive,
+      needsTokenUpdate: !isValidBotToken(b.token),
     }));
   }
 

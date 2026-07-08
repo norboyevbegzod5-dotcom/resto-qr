@@ -13,6 +13,7 @@ interface TelegramBot {
   isActive: boolean;
   running: boolean;
   shouldBeRunning?: boolean;
+  needsTokenUpdate?: boolean;
   brand?: { id: number; name: string } | null;
   createdAt: string;
 }
@@ -230,16 +231,28 @@ export default function BotsPage() {
                 <div className="flex items-center gap-3 mb-1">
                   <h3 className="text-lg font-semibold truncate">{bot.name}</h3>
                   <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-0.5 rounded-full ${
-                    bot.running
+                    bot.needsTokenUpdate
+                      ? 'bg-orange-100 text-orange-700'
+                      : bot.running
                       ? 'bg-green-100 text-green-700'
                       : bot.shouldBeRunning
                         ? 'bg-yellow-100 text-yellow-700'
                         : 'bg-red-100 text-red-700'
                   }`}>
                     <span className={`w-2 h-2 rounded-full ${
-                      bot.running ? 'bg-green-500' : bot.shouldBeRunning ? 'bg-yellow-500' : 'bg-red-500'
+                      bot.needsTokenUpdate
+                        ? 'bg-orange-500'
+                        : bot.running
+                        ? 'bg-green-500'
+                        : bot.shouldBeRunning ? 'bg-yellow-500' : 'bg-red-500'
                     }`} />
-                    {bot.running ? 'Работает' : bot.shouldBeRunning ? 'Запускается...' : 'Остановлен'}
+                    {bot.needsTokenUpdate
+                      ? 'Нужен токен'
+                      : bot.running
+                      ? 'Работает'
+                      : bot.shouldBeRunning
+                        ? 'Запускается...'
+                        : 'Остановлен'}
                   </span>
                 </div>
                 <div className="text-sm text-gray-500 space-y-0.5">

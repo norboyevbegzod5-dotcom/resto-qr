@@ -5,6 +5,7 @@ import { PrismaService } from '../../common/prisma.service';
 import { VouchersService } from '../vouchers/vouchers.service';
 import { UsersService } from '../users/users.service';
 import { CampaignsService } from '../campaigns/campaigns.service';
+import { BRAND_BOT_RESTORATIONS, isValidBotToken } from './brand-bot-config';
 
 interface BotInstance {
   id: number;
@@ -31,6 +32,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit() {
     await this.syncPrimaryBot();
+    await this.restoreBrandBots();
 
     const baseUrl = process.env.RENDER_EXTERNAL_URL;
     if (baseUrl) {
@@ -119,6 +121,26 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`Primary bot created: @${username}`);
   }
 
+  private async restoreBrandBots() {
+    for (const { username, envVar } of BRAND_BOT_RESTORATIONS) {
+      const envToken = process.env[envVar];
+      if (!isValidBotToken(envToken)) continue;
+
+      const bot = await this.prisma.telegramBot.findFirst({
+        where: { username: { equals: username, mode: 'insensitive' } },
+      });
+      if (!bot) continue;
+
+      if (bot.token === envToken && bot.isActive && isValidBotToken(bot.token)) continue;
+
+      await this.prisma.telegramBot.update({
+        where: { id: bot.id },
+        data: { token: envToken, isActive: true },
+      });
+      this.logger.log(`Brand bot restored from env: @${bot.username}`);
+    }
+  }
+
   async onModuleDestroy() {
     if (this.healthCheckInterval) {
       clearInterval(this.healthCheckInterval);
@@ -186,6 +208,13 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
     }
 
     for (const dbBot of dbBots) {
+      if (!isValidBotToken(dbBot.token)) {
+        this.logger.error(
+          `Bot "${dbBot.name}" (@${dbBot.username}) has invalid token — update it in admin or set env var`,
+        );
+        continue;
+      }
+
       try {
         const telegraf = new Telegraf(dbBot.token);
         const instance: BotInstance = {
@@ -216,6 +245,11 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
   async launchBot(dbBot: { id: number; name: string; token: string; username: string; brandId: number | null; miniAppUrl: string | null }) {
     if (this.bots.has(dbBot.id)) {
       this.logger.warn(`Bot "${dbBot.name}" already running, skipping`);
+      return;
+    }
+
+    if (!isValidBotToken(dbBot.token)) {
+      this.logger.error(`Bot "${dbBot.name}" (@${dbBot.username}) has invalid token — skipping launch`);
       return;
     }
 
@@ -283,6 +317,10 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       dbBot.isActive = true;
     }
 
+    if (!isValidBotToken(dbBot.token)) {
+      throw new Error(`Bot "${dbBot.name}" has invalid token — update it in admin panel`);
+    }
+
     const baseUrl = process.env.RENDER_EXTERNAL_URL;
     if (baseUrl) {
       await this.registerSingleWebhook(dbBot, baseUrl);
@@ -315,6 +353,10 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
         }
       });
       this.webhookRouteRegistered = true;
+    }
+
+    if (!isValidBotToken(dbBot.token)) {
+      throw new Error(`Bot "${dbBot.name}" has invalid token`);
     }
 
     try {

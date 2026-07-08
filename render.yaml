@@ -20,3 +20,7 @@ services:
         value: resto_restaurantbot
       - key: TELEGRAM_BOT_TOKEN
         sync: false
+      - key: DOLCETTA_BOT_TOKEN
+        sync: false
+      - key: UZBEKONA_BOT_TOKEN
+        sync: false
