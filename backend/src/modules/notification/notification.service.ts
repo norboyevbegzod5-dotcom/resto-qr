@@ -73,14 +73,37 @@ export class NotificationService {
     minVouchers?: number;
     maxRemaining?: number;
     eligible?: boolean;
+    botId?: number;
   }) {
     const campaign = await this.prisma.campaign.findFirst({
       where: { isActive: true },
     });
     if (!campaign) return [];
 
+    let brandId: number | null = null;
+    if (filters.botId) {
+      const bot = await this.prisma.telegramBot.findUnique({
+        where: { id: filters.botId },
+      });
+      if (!bot) return [];
+      brandId = bot.brandId;
+    }
+
     const users = await this.prisma.user.findMany({
-      where: { chatId: { not: null } },
+      where: {
+        chatId: { not: null },
+        ...(brandId
+          ? {
+              vouchers: {
+                some: {
+                  status: 'ACTIVATED',
+                  campaignId: campaign.id,
+                  brandId,
+                },
+              },
+            }
+          : {}),
+      },
       include: {
         vouchers: {
           where: { status: 'ACTIVATED', campaignId: campaign.id },
@@ -97,6 +120,9 @@ export class NotificationService {
         const remainingVouchers = Math.max(0, campaign.minVouchers - total);
         const remainingBrands = Math.max(0, campaign.minBrands - brandCount);
         const isEligible = remainingVouchers === 0 && remainingBrands === 0;
+        const brandVouchers = brandId
+          ? user.vouchers.filter((v) => v.brandId === brandId).length
+          : total;
 
         return {
           id: user.id,
@@ -105,6 +131,7 @@ export class NotificationService {
           chatId: user.chatId!,
           lang: user.botLanguage || 'RU',
           totalVouchers: total,
+          brandVouchers,
           brandCount,
           remainingVouchers,
           remainingBrands,
@@ -124,7 +151,8 @@ export class NotificationService {
   async sendBroadcast(
     chatIds: string[],
     message: string,
+    botId?: number,
   ): Promise<{ sent: number; failed: number }> {
-    return this.botService.broadcastToUsers(chatIds, message);
+    return this.botService.broadcastToUsers(chatIds, message, botId);
   }
 }

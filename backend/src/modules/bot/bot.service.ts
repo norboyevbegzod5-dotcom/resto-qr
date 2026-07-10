@@ -415,18 +415,25 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
   // ── Отправка сообщений пользователям ──
 
-  async sendMessageToUser(chatId: string, message: string): Promise<boolean> {
-    const firstBot = this.bots.values().next().value;
-    if (!firstBot) {
-      this.logger.warn('No running bots to send message');
+  async sendMessageToUser(chatId: string, message: string, botId?: number): Promise<boolean> {
+    const bot = botId
+      ? this.bots.get(botId)
+      : this.bots.values().next().value;
+
+    if (!bot) {
+      this.logger.warn(
+        botId
+          ? `Bot ${botId} is not running — cannot send message`
+          : 'No running bots to send message',
+      );
       return false;
     }
 
     try {
-      await firstBot.telegraf.telegram.sendMessage(chatId, message, { parse_mode: 'HTML' });
+      await bot.telegraf.telegram.sendMessage(chatId, message, { parse_mode: 'HTML' });
       return true;
     } catch (e: any) {
-      this.logger.error(`Failed to send to ${chatId}: ${e.message}`);
+      this.logger.error(`Failed to send to ${chatId} via @${bot.username}: ${e.message}`);
       return false;
     }
   }
@@ -460,12 +467,13 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
   async broadcastToUsers(
     chatIds: string[],
     message: string,
+    botId?: number,
   ): Promise<{ sent: number; failed: number }> {
     let sent = 0;
     let failed = 0;
 
     for (const chatId of chatIds) {
-      const ok = await this.sendMessageToUser(chatId, message);
+      const ok = await this.sendMessageToUser(chatId, message, botId);
       if (ok) sent++;
       else failed++;
 

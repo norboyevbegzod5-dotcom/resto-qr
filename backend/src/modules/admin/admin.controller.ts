@@ -374,7 +374,7 @@ export class AdminController {
 
   @Post('broadcast/preview')
   async broadcastPreview(
-    @Body() body: { minVouchers?: number; maxRemaining?: number; eligible?: boolean },
+    @Body() body: { minVouchers?: number; maxRemaining?: number; eligible?: boolean; botId?: number },
   ) {
     const users = await this.notificationService.getTargetUsers(body);
     return {
@@ -384,6 +384,7 @@ export class AdminController {
         name: u.name,
         phone: u.phone,
         totalVouchers: u.totalVouchers,
+        brandVouchers: u.brandVouchers,
         remainingVouchers: u.remainingVouchers,
         eligible: u.eligible,
       })),
@@ -397,6 +398,7 @@ export class AdminController {
       minVouchers?: number;
       maxRemaining?: number;
       eligible?: boolean;
+      botId?: number;
     },
   ) {
     if (!body.message || body.message.trim().length === 0) {
@@ -407,10 +409,11 @@ export class AdminController {
       minVouchers: body.minVouchers,
       maxRemaining: body.maxRemaining,
       eligible: body.eligible,
+      botId: body.botId,
     });
 
     const chatIds = users.map((u) => u.chatId);
-    const result = await this.notificationService.sendBroadcast(chatIds, body.message);
+    const result = await this.notificationService.sendBroadcast(chatIds, body.message, body.botId);
     return { ...result, total: chatIds.length };
   }
 

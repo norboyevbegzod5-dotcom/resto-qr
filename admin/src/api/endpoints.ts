@@ -61,9 +61,9 @@ export const lotteryApi = {
 };
 
 export const broadcastApi = {
-  preview: (filters: { minVouchers?: number; maxRemaining?: number; eligible?: boolean }) =>
+  preview: (filters: { minVouchers?: number; maxRemaining?: number; eligible?: boolean; botId?: number }) =>
     api.post('/admin/broadcast/preview', filters),
-  send: (data: { message: string; minVouchers?: number; maxRemaining?: number; eligible?: boolean }) =>
+  send: (data: { message: string; minVouchers?: number; maxRemaining?: number; eligible?: boolean; botId?: number }) =>
     api.post('/admin/broadcast/send', data),
 };
 

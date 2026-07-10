@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
-import { broadcastApi } from '../api/endpoints';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { broadcastApi, botsApi } from '../api/endpoints';
 import { Send, Users, Filter, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -9,19 +9,38 @@ interface PreviewUser {
   name: string | null;
   phone: string | null;
   totalVouchers: number;
+  brandVouchers?: number;
   remainingVouchers: number;
   eligible: boolean;
 }
 
+interface TelegramBot {
+  id: number;
+  name: string;
+  username: string;
+  isActive: boolean;
+  brand?: { id: number; name: string } | null;
+}
+
 export default function BroadcastPage() {
   const [message, setMessage] = useState('');
+  const [botId, setBotId] = useState<string>('');
   const [minVouchers, setMinVouchers] = useState<string>('1');
   const [maxRemaining, setMaxRemaining] = useState<string>('');
   const [eligibleFilter, setEligibleFilter] = useState<string>('');
   const [preview, setPreview] = useState<{ count: number; users: PreviewUser[] } | null>(null);
   const [sendResult, setSendResult] = useState<{ sent: number; failed: number; total: number } | null>(null);
 
+  const { data: bots = [] } = useQuery<TelegramBot[]>({
+    queryKey: ['bots'],
+    queryFn: async () => (await botsApi.getAll()).data,
+  });
+
+  const activeBots = bots.filter((b) => b.isActive);
+  const selectedBot = activeBots.find((b) => String(b.id) === botId);
+
   const filters = {
+    botId: botId ? parseInt(botId, 10) : undefined,
     minVouchers: minVouchers ? parseInt(minVouchers) : undefined,
     maxRemaining: maxRemaining ? parseInt(maxRemaining) : undefined,
     eligible: eligibleFilter === '' ? undefined : eligibleFilter === 'true',
@@ -51,11 +70,16 @@ export default function BroadcastPage() {
       toast.error('Введите текст сообщения');
       return;
     }
+    if (!botId) {
+      toast.error('Выберите бота для рассылки');
+      return;
+    }
     if (!preview || preview.count === 0) {
       toast.error('Сначала проверьте получателей');
       return;
     }
-    if (confirm(`Отправить сообщение ${preview.count} пользователям?`)) {
+    const botLabel = selectedBot ? `@${selectedBot.username}` : 'выбранного бота';
+    if (confirm(`Отправить сообщение ${preview.count} пользователям через ${botLabel}?`)) {
       sendMut.mutate();
     }
   };
@@ -90,6 +114,31 @@ export default function BroadcastPage() {
             </h3>
 
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Бот
+                </label>
+                <select
+                  value={botId}
+                  onChange={(e) => {
+                    setBotId(e.target.value);
+                    setPreview(null);
+                    setSendResult(null);
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                >
+                  <option value="">Выберите бота</option>
+                  {activeBots.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} (@{b.username}){b.brand ? ` — ${b.brand.name}` : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-400 mt-1">
+                  Получатели — пользователи с купонами бренда бота. Сообщение уйдёт от этого бота.
+                </p>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Мин. купонов у пользователя
@@ -134,7 +183,13 @@ export default function BroadcastPage() {
               </div>
 
               <button
-                onClick={() => previewMut.mutate()}
+                onClick={() => {
+                  if (!botId) {
+                    toast.error('Выберите бота');
+                    return;
+                  }
+                  previewMut.mutate();
+                }}
                 disabled={previewMut.isPending}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-50"
               >
@@ -146,6 +201,9 @@ export default function BroadcastPage() {
                 <div className="bg-indigo-50 rounded-lg p-3 text-center">
                   <span className="text-2xl font-bold text-indigo-700">{preview.count}</span>
                   <p className="text-sm text-indigo-600">получателей</p>
+                  {selectedBot && (
+                    <p className="text-xs text-indigo-500 mt-1">через @{selectedBot.username}</p>
+                  )}
                 </div>
               )}
             </div>
@@ -186,7 +244,7 @@ export default function BroadcastPage() {
             <div className="mt-4 flex items-center gap-4">
               <button
                 onClick={handleSend}
-                disabled={sendMut.isPending || !message.trim() || !preview || preview.count === 0}
+                disabled={sendMut.isPending || !message.trim() || !botId || !preview || preview.count === 0}
                 className="flex items-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition disabled:opacity-50"
               >
                 <Send size={16} />
@@ -220,6 +278,11 @@ export default function BroadcastPage() {
                       <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Имя</th>
                       <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Телефон</th>
                       <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Купонов</th>
+                      {selectedBot?.brand && (
+                        <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                          {selectedBot.brand.name}
+                        </th>
+                      )}
                       <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Осталось</th>
                       <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Участвует</th>
                     </tr>
@@ -231,6 +294,9 @@ export default function BroadcastPage() {
                         <td className="px-4 py-2 text-sm font-medium text-gray-900">{u.name || '—'}</td>
                         <td className="px-4 py-2 text-sm text-gray-600">{u.phone || '—'}</td>
                         <td className="px-4 py-2 text-sm font-medium text-gray-900">{u.totalVouchers}</td>
+                        {selectedBot?.brand && (
+                          <td className="px-4 py-2 text-sm text-gray-600">{u.brandVouchers ?? '—'}</td>
+                        )}
                         <td className="px-4 py-2 text-sm text-gray-600">{u.remainingVouchers}</td>
                         <td className="px-4 py-2">
                           <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
