@@ -92,15 +92,28 @@ export class NotificationService {
     const users = await this.prisma.user.findMany({
       where: {
         chatId: { not: null },
+        phone: { not: null },
         ...(brandId
           ? {
-              vouchers: {
-                some: {
-                  status: 'ACTIVATED',
-                  campaignId: campaign.id,
-                  brandId,
+              OR: [
+                {
+                  vouchers: {
+                    some: {
+                      status: 'ACTIVATED',
+                      campaignId: campaign.id,
+                      brandId,
+                    },
+                  },
                 },
-              },
+                {
+                  vouchers: {
+                    none: {
+                      status: 'ACTIVATED',
+                      campaignId: campaign.id,
+                    },
+                  },
+                },
+              ],
             }
           : {}),
       },
@@ -139,7 +152,6 @@ export class NotificationService {
         };
       })
       .filter((u) => {
-        if (u.totalVouchers === 0) return false;
         if (filters.eligible === true) return u.eligible;
         if (filters.eligible === false) return !u.eligible;
         if (filters.minVouchers !== undefined && u.totalVouchers < filters.minVouchers) return false;

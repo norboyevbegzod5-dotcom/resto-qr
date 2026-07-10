@@ -25,7 +25,7 @@ interface TelegramBot {
 export default function BroadcastPage() {
   const [message, setMessage] = useState('');
   const [botId, setBotId] = useState<string>('');
-  const [minVouchers, setMinVouchers] = useState<string>('1');
+  const [minVouchers, setMinVouchers] = useState<string>('0');
   const [maxRemaining, setMaxRemaining] = useState<string>('');
   const [eligibleFilter, setEligibleFilter] = useState<string>('');
   const [preview, setPreview] = useState<{ count: number; users: PreviewUser[] } | null>(null);
@@ -41,8 +41,8 @@ export default function BroadcastPage() {
 
   const filters = {
     botId: botId ? parseInt(botId, 10) : undefined,
-    minVouchers: minVouchers ? parseInt(minVouchers) : undefined,
-    maxRemaining: maxRemaining ? parseInt(maxRemaining) : undefined,
+    minVouchers: minVouchers !== '' ? parseInt(minVouchers, 10) : undefined,
+    maxRemaining: maxRemaining !== '' ? parseInt(maxRemaining, 10) : undefined,
     eligible: eligibleFilter === '' ? undefined : eligibleFilter === 'true',
   };
 
@@ -135,7 +135,7 @@ export default function BroadcastPage() {
                   ))}
                 </select>
                 <p className="text-xs text-gray-400 mt-1">
-                  Получатели — пользователи с купонами бренда бота. Сообщение уйдёт от этого бота.
+                  Получатели: пользователи с купонами бренда бота и зарегистрированные без купонов. Сообщение уйдёт от этого бота.
                 </p>
               </div>
 
@@ -149,7 +149,7 @@ export default function BroadcastPage() {
                   onChange={(e) => setMinVouchers(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                   min={0}
-                  placeholder="1"
+                  placeholder="0"
                 />
               </div>
 
