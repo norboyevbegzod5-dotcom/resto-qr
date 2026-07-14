@@ -8,6 +8,7 @@ import {
   Trophy,
   Bot,
   Send,
+  ClipboardList,
   Receipt,
   LogOut,
 } from 'lucide-react';
@@ -21,6 +22,7 @@ const navItems = [
   { path: '/lottery', label: 'Розыгрыш', icon: Trophy },
   { path: '/bots', label: 'Telegram-боты', icon: Bot },
   { path: '/broadcast', label: 'Рассылка', icon: Send },
+  { path: '/broadcast-reports', label: 'Отчёты рассылок', icon: ClipboardList },
   { path: '/receipts', label: 'Чеки', icon: Receipt },
 ];
 
@@ -46,7 +48,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             const isActive =
               item.path === '/'
                 ? location.pathname === '/'
-                : location.pathname.startsWith(item.path);
+                : location.pathname === item.path ||
+                  location.pathname.startsWith(item.path + '/');
             const Icon = item.icon;
 
             return (

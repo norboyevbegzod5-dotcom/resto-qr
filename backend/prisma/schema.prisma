@@ -147,3 +147,33 @@ model ActivationLog {
 
   @@map("activation_logs")
 }
+
+model Broadcast {
+  id          Int      @id @default(autoincrement())
+  message     String
+  botId       Int?
+  botUsername String?
+  total       Int      @default(0)
+  sent        Int      @default(0)
+  failed      Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  recipients BroadcastRecipient[]
+
+  @@map("broadcasts")
+}
+
+model BroadcastRecipient {
+  id          Int       @id @default(autoincrement())
+  broadcastId Int
+  broadcast   Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  userId      Int?
+  chatId      String
+  name        String?
+  phone       String?
+  success     Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  @@index([broadcastId])
+  @@map("broadcast_recipients")
+}

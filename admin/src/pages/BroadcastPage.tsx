@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { broadcastApi, botsApi } from '../api/endpoints';
-import { Send, Users, Filter, Eye } from 'lucide-react';
+import { Send, Users, Filter } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface PreviewUser {
@@ -28,7 +28,6 @@ export default function BroadcastPage() {
   const [minVouchers, setMinVouchers] = useState<string>('0');
   const [maxRemaining, setMaxRemaining] = useState<string>('');
   const [eligibleFilter, setEligibleFilter] = useState<string>('');
-  const [preview, setPreview] = useState<{ count: number; users: PreviewUser[] } | null>(null);
   const [sendResult, setSendResult] = useState<{ sent: number; failed: number; total: number } | null>(null);
 
   const { data: bots = [] } = useQuery<TelegramBot[]>({
@@ -46,13 +45,15 @@ export default function BroadcastPage() {
     eligible: eligibleFilter === '' ? undefined : eligibleFilter === 'true',
   };
 
-  const previewMut = useMutation({
-    mutationFn: () => broadcastApi.preview(filters),
-    onSuccess: (res) => {
-      setPreview(res.data);
-      setSendResult(null);
-    },
-    onError: () => toast.error('Ошибка при загрузке превью'),
+  // Auto-count recipients: refetches whenever the bot or filters change.
+  const {
+    data: preview,
+    isFetching: previewLoading,
+    refetch: refetchPreview,
+  } = useQuery<{ count: number; users: PreviewUser[] }>({
+    queryKey: ['broadcast-preview', filters.botId, filters.minVouchers, filters.maxRemaining, filters.eligible],
+    queryFn: async () => (await broadcastApi.preview(filters)).data,
+    enabled: !!botId,
   });
 
   const sendMut = useMutation({
@@ -61,6 +62,7 @@ export default function BroadcastPage() {
     onSuccess: (res) => {
       setSendResult(res.data);
       toast.success(`Отправлено: ${res.data.sent} из ${res.data.total}`);
+      refetchPreview();
     },
     onError: () => toast.error('Ошибка при отправке рассылки'),
   });
@@ -122,7 +124,6 @@ export default function BroadcastPage() {
                   value={botId}
                   onChange={(e) => {
                     setBotId(e.target.value);
-                    setPreview(null);
                     setSendResult(null);
                   }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
@@ -182,30 +183,21 @@ export default function BroadcastPage() {
                 </select>
               </div>
 
-              <button
-                onClick={() => {
-                  if (!botId) {
-                    toast.error('Выберите бота');
-                    return;
-                  }
-                  previewMut.mutate();
-                }}
-                disabled={previewMut.isPending}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-50"
-              >
-                <Eye size={16} />
-                {previewMut.isPending ? 'Загрузка...' : 'Показать получателей'}
-              </button>
-
-              {preview && (
-                <div className="bg-indigo-50 rounded-lg p-3 text-center">
-                  <span className="text-2xl font-bold text-indigo-700">{preview.count}</span>
-                  <p className="text-sm text-indigo-600">получателей</p>
-                  {selectedBot && (
-                    <p className="text-xs text-indigo-500 mt-1">через @{selectedBot.username}</p>
-                  )}
-                </div>
-              )}
+              <div className="bg-indigo-50 rounded-lg p-3 text-center">
+                {!botId ? (
+                  <p className="text-sm text-indigo-500 py-2">Выберите бота, чтобы увидеть кол-во получателей</p>
+                ) : previewLoading ? (
+                  <p className="text-sm text-indigo-500 py-2">Подсчёт получателей...</p>
+                ) : (
+                  <>
+                    <span className="text-3xl font-bold text-indigo-700">{preview?.count ?? 0}</span>
+                    <p className="text-sm text-indigo-600">получателей</p>
+                    {selectedBot && (
+                      <p className="text-xs text-indigo-500 mt-1">через @{selectedBot.username}</p>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>

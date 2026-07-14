@@ -412,9 +412,70 @@ export class AdminController {
       botId: body.botId,
     });
 
-    const chatIds = users.map((u) => u.chatId);
-    const result = await this.notificationService.sendBroadcast(chatIds, body.message, body.botId);
-    return { ...result, total: chatIds.length };
+    let botUsername: string | undefined;
+    if (body.botId) {
+      const bot = await this.prisma.telegramBot.findUnique({ where: { id: body.botId } });
+      botUsername = bot?.username;
+    }
+
+    return this.notificationService.sendBroadcastWithReport(
+      users.map((u) => ({ id: u.id, chatId: u.chatId, name: u.name, phone: u.phone })),
+      body.message,
+      body.botId,
+      botUsername,
+    );
+  }
+
+  @Get('broadcasts')
+  async getBroadcasts(
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    const pageNum = page ? +page : 1;
+    const limitNum = limit ? +limit : 20;
+    const skip = (pageNum - 1) * limitNum;
+
+    const [data, total] = await Promise.all([
+      this.prisma.broadcast.findMany({
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limitNum,
+      }),
+      this.prisma.broadcast.count(),
+    ]);
+
+    return { data, total, page: pageNum, limit: limitNum };
+  }
+
+  @Get('broadcasts/:id/recipients')
+  async getBroadcastRecipients(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Query('phone') phone?: string,
+    @Query('success') success?: string,
+  ) {
+    const pageNum = page ? +page : 1;
+    const limitNum = limit ? +limit : 50;
+    const skip = (pageNum - 1) * limitNum;
+
+    const where: any = { broadcastId: id };
+    if (phone) where.phone = { contains: phone };
+    if (success === 'true') where.success = true;
+    if (success === 'false') where.success = false;
+
+    const [data, total, broadcast] = await Promise.all([
+      this.prisma.broadcastRecipient.findMany({
+        where,
+        orderBy: { id: 'asc' },
+        skip,
+        take: limitNum,
+      }),
+      this.prisma.broadcastRecipient.count({ where }),
+      this.prisma.broadcast.findUnique({ where: { id } }),
+    ]);
+
+    return { data, total, page: pageNum, limit: limitNum, broadcast };
   }
 
   // ── Чеки ──

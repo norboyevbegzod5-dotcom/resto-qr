@@ -65,6 +65,10 @@ export const broadcastApi = {
     api.post('/admin/broadcast/preview', filters),
   send: (data: { message: string; minVouchers?: number; maxRemaining?: number; eligible?: boolean; botId?: number }) =>
     api.post('/admin/broadcast/send', data),
+  history: (params?: { page?: number; limit?: number }) =>
+    api.get('/admin/broadcasts', { params }),
+  recipients: (id: number, params?: { page?: number; limit?: number; phone?: string; success?: string }) =>
+    api.get(`/admin/broadcasts/${id}/recipients`, { params }),
 };
 
 export const receiptsApi = {

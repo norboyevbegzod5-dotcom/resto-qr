@@ -167,4 +167,61 @@ export class NotificationService {
   ): Promise<{ sent: number; failed: number }> {
     return this.botService.broadcastToUsers(chatIds, message, botId);
   }
+
+  // Sends a broadcast and persists a report: the broadcast itself plus one row
+  // per recipient with delivery success, so the admin can later see exactly who
+  // received it.
+  async sendBroadcastWithReport(
+    users: { id: number; chatId: string; name: string | null; phone: string | null }[],
+    message: string,
+    botId?: number,
+    botUsername?: string,
+  ): Promise<{ broadcastId: number; sent: number; failed: number; total: number }> {
+    const broadcast = await this.prisma.broadcast.create({
+      data: {
+        message,
+        botId: botId ?? null,
+        botUsername: botUsername ?? null,
+        total: users.length,
+      },
+    });
+
+    let sent = 0;
+    let failed = 0;
+    const recipients: {
+      broadcastId: number;
+      userId: number;
+      chatId: string;
+      name: string | null;
+      phone: string | null;
+      success: boolean;
+    }[] = [];
+
+    for (const user of users) {
+      const ok = await this.botService.sendMessageToUser(user.chatId, message, botId);
+      if (ok) sent++;
+      else failed++;
+
+      recipients.push({
+        broadcastId: broadcast.id,
+        userId: user.id,
+        chatId: user.chatId,
+        name: user.name,
+        phone: user.phone,
+        success: ok,
+      });
+
+      await new Promise((r) => setTimeout(r, 35));
+    }
+
+    if (recipients.length > 0) {
+      await this.prisma.broadcastRecipient.createMany({ data: recipients });
+    }
+    await this.prisma.broadcast.update({
+      where: { id: broadcast.id },
+      data: { sent, failed },
+    });
+
+    return { broadcastId: broadcast.id, sent, failed, total: users.length };
+  }
 }
