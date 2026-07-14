@@ -46,23 +46,28 @@ export class RedirectController {
       }
     }
 
-    const telegramUrl = `https://t.me/${botUsername}?start=CODE_${code}`;
+    const startParam = `CODE_${code}`;
+    // tg:// opens the Telegram app directly WITHOUT resolving t.me — this is the
+    // only path that works where the ISP blocks the t.me domain (DNS NXDOMAIN).
+    const tgAppUrl = `tg://resolve?domain=${botUsername}&start=${startParam}`;
+    // https://t.me is the fallback for clients where the app scheme isn't
+    // registered (e.g. desktop without Telegram) and where t.me is reachable.
+    const tgWebUrl = `https://t.me/${botUsername}?start=${startParam}`;
 
-    // Redirect at the HTTP level (302 + Location) — every browser and QR scanner
-    // follows it, unlike <meta refresh>, which most in-app webviews ignore. The
-    // HTML body below is only a fallback for clients that don't follow the
-    // redirect; it also retries via JS and offers a manual button.
-    res.status(302);
-    res.setHeader('Location', telegramUrl);
+    // Do NOT 302 to t.me: on blocked networks the browser can't resolve it. We
+    // serve a page that jumps straight into the app via tg:// and keeps buttons
+    // as a manual fallback.
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(`<!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="refresh" content="0;url=${telegramUrl}">
   <title>Купон ${code}</title>
-  <script>window.location.replace(${JSON.stringify(telegramUrl)});</script>
+  <script>
+    // Try to open the Telegram app immediately (works even if t.me is blocked).
+    window.location.href = ${JSON.stringify(tgAppUrl)};
+  </script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-align: center; padding: 20px; }
@@ -70,8 +75,9 @@ export class RedirectController {
     .icon { font-size: 48px; margin-bottom: 16px; }
     .code { font-size: 32px; font-weight: 800; letter-spacing: 3px; margin: 12px 0; }
     .text { font-size: 16px; opacity: 0.9; margin-bottom: 20px; }
-    .btn { display: inline-block; background: white; color: #667eea; font-weight: 700; font-size: 16px; padding: 14px 32px; border-radius: 12px; text-decoration: none; transition: transform 0.2s; }
+    .btn { display: block; background: white; color: #667eea; font-weight: 700; font-size: 16px; padding: 14px 32px; border-radius: 12px; text-decoration: none; transition: transform 0.2s; margin-top: 12px; }
     .btn:hover { transform: scale(1.05); }
+    .btn.secondary { background: rgba(255,255,255,0.2); color: white; font-weight: 600; font-size: 14px; }
     .loader { margin-top: 16px; opacity: 0.7; font-size: 14px; }
   </style>
 </head>
@@ -80,8 +86,9 @@ export class RedirectController {
     <div class="icon">🎟</div>
     <div class="text">Ваш купон</div>
     <div class="code">${code}</div>
-    <a href="${telegramUrl}" class="btn">Открыть в Telegram</a>
-    <div class="loader">Перенаправляем автоматически...</div>
+    <a href="${tgAppUrl}" class="btn">Открыть в Telegram</a>
+    <a href="${tgWebUrl}" class="btn secondary">Не открылось? Открыть через t.me</a>
+    <div class="loader">Открываем Telegram...</div>
   </div>
 </body>
 </html>`);
