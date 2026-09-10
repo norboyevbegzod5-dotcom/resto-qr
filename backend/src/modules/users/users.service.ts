@@ -33,8 +33,11 @@ export class UsersService {
     search?: string;
     eligible?: boolean;
     campaignId?: number;
+    brandId?: number;
+    minVouchers?: number;
+    maxVouchers?: number;
   }) {
-    const { page = 1, limit = 20, search, eligible, campaignId } = params;
+    const { page = 1, limit = 20, search, eligible, campaignId, brandId, minVouchers, maxVouchers } = params;
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -46,6 +49,16 @@ export class UsersService {
     }
 
     const voucherWhere = campaignId ? { campaignId, status: 'ACTIVATED' as const } : { status: 'ACTIVATED' as const };
+
+    if (brandId) {
+      where.vouchers = {
+        some: {
+          status: 'ACTIVATED',
+          brandId,
+          ...(campaignId ? { campaignId } : {}),
+        },
+      };
+    }
 
     const activeCampaign = campaignId
       ? await this.prisma.campaign.findUnique({ where: { id: campaignId } })
@@ -64,13 +77,21 @@ export class UsersService {
       };
     };
 
-    if (eligible !== undefined) {
+    const needPostFilter =
+      eligible !== undefined || minVouchers !== undefined || maxVouchers !== undefined;
+
+    if (needPostFilter) {
       const allUsers = await this.prisma.user.findMany({
         where,
         orderBy: { createdAt: 'desc' },
         include: { vouchers: { where: voucherWhere, include: { brand: true } } },
       });
-      const allEnriched = allUsers.map(enrich).filter((u) => u.eligible === eligible);
+      const allEnriched = allUsers.map(enrich).filter((u) => {
+        if (eligible !== undefined && u.eligible !== eligible) return false;
+        if (minVouchers !== undefined && u.totalVouchers < minVouchers) return false;
+        if (maxVouchers !== undefined && u.totalVouchers > maxVouchers) return false;
+        return true;
+      });
       const total = allEnriched.length;
       const data = allEnriched.slice(skip, skip + limit);
       return { data, total, page, limit };

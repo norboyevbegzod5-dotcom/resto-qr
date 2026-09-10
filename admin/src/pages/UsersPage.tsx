@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { usersApi } from '../api/endpoints';
+import { usersApi, brandsApi } from '../api/endpoints';
 import { Search, CheckCircle, XCircle, Trash2, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../api/client';
@@ -10,9 +10,17 @@ export default function UsersPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [eligibleFilter, setEligibleFilter] = useState<string>('');
+  const [brandFilter, setBrandFilter] = useState<string>('');
+  const [minVouchers, setMinVouchers] = useState<string>('');
+  const [maxVouchers, setMaxVouchers] = useState<string>('');
+
+  const { data: brands } = useQuery({
+    queryKey: ['brands'],
+    queryFn: () => brandsApi.getAll().then((r) => r.data),
+  });
 
   const { data, isLoading } = useQuery({
-    queryKey: ['users', page, search, eligibleFilter],
+    queryKey: ['users', page, search, eligibleFilter, brandFilter, minVouchers, maxVouchers],
     queryFn: () =>
       usersApi
         .getAll({
@@ -20,6 +28,9 @@ export default function UsersPage() {
           limit: 20,
           search: search || undefined,
           eligible: eligibleFilter === '' ? undefined : eligibleFilter === 'true',
+          brandId: brandFilter ? Number(brandFilter) : undefined,
+          minVouchers: minVouchers !== '' ? Number(minVouchers) : undefined,
+          maxVouchers: maxVouchers !== '' ? Number(maxVouchers) : undefined,
         })
         .then((r) => r.data),
   });
@@ -87,6 +98,47 @@ export default function UsersPage() {
             <option value="true">Участвуют</option>
             <option value="false">Не участвуют</option>
           </select>
+          <select
+            value={brandFilter}
+            onChange={(e) => { setBrandFilter(e.target.value); setPage(1); }}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+          >
+            <option value="">Все бренды</option>
+            {brands?.map((b: any) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+          <input
+            type="number"
+            min={0}
+            placeholder="Кодов от"
+            value={minVouchers}
+            onChange={(e) => { setMinVouchers(e.target.value.replace(/\D/g, '')); setPage(1); }}
+            className="w-28 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+          />
+          <input
+            type="number"
+            min={0}
+            placeholder="Кодов до"
+            value={maxVouchers}
+            onChange={(e) => { setMaxVouchers(e.target.value.replace(/\D/g, '')); setPage(1); }}
+            className="w-28 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+          />
+          {(brandFilter || minVouchers || maxVouchers || eligibleFilter || search) && (
+            <button
+              onClick={() => {
+                setBrandFilter('');
+                setMinVouchers('');
+                setMaxVouchers('');
+                setEligibleFilter('');
+                setSearch('');
+                setPage(1);
+              }}
+              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+            >
+              Сбросить
+            </button>
+          )}
         </div>
 
         <div className="overflow-x-auto">

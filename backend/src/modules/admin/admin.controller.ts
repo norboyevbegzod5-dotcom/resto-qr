@@ -45,8 +45,20 @@ export class AdminController {
     @Query('search') search?: string,
     @Query('eligible') eligible?: boolean,
     @Query('campaignId') campaignId?: number,
+    @Query('brandId') brandId?: number,
+    @Query('minVouchers') minVouchers?: number,
+    @Query('maxVouchers') maxVouchers?: number,
   ) {
-    return this.usersService.findAll({ page, limit, search, eligible, campaignId });
+    return this.usersService.findAll({
+      page,
+      limit,
+      search,
+      eligible,
+      campaignId,
+      brandId,
+      minVouchers,
+      maxVouchers,
+    });
   }
 
   @Get('users/export-csv')
