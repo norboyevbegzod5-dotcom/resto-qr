@@ -7,6 +7,10 @@ import { UsersService } from '../users/users.service';
 import { CampaignsService } from '../campaigns/campaigns.service';
 import { BRAND_BOT_RESTORATIONS, isValidBotToken } from './brand-bot-config';
 
+// Telegram keeps the previous allowed_updates when it's omitted — pass it explicitly,
+// otherwise inline button presses (callback_query) may never reach the bot.
+const ALLOWED_UPDATES: ('message' | 'callback_query')[] = ['message', 'callback_query'];
+
 interface BotInstance {
   id: number;
   name: string;
@@ -231,7 +235,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
         const path = `/webhook/bot/${dbBot.id}`;
         const url = `${baseUrl.replace(/\/$/, '')}${path}`;
-        await telegraf.telegram.setWebhook(url);
+        await telegraf.telegram.setWebhook(url, { allowed_updates: ALLOWED_UPDATES });
 
         this.logger.log(`Bot "${dbBot.name}" (@${dbBot.username}) webhook at ${url}`);
       } catch (e: any) {
@@ -270,7 +274,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
         this.registerHandlers(instance);
 
-        const launchPromise = telegraf.launch();
+        const launchPromise = telegraf.launch({ allowedUpdates: ALLOWED_UPDATES });
         const timeout = new Promise<void>((_, reject) =>
           setTimeout(() => reject(new Error('Launch timeout')), LAUNCH_TIMEOUT_MS),
         );
@@ -374,7 +378,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
       this.bots.set(dbBot.id, instance);
 
       const url = `${baseUrl.replace(/\/$/, '')}/webhook/bot/${dbBot.id}`;
-      await telegraf.telegram.setWebhook(url);
+      await telegraf.telegram.setWebhook(url, { allowed_updates: ALLOWED_UPDATES });
       this.logger.log(`Bot "${dbBot.name}" (@${dbBot.username}) webhook at ${url}`);
     } catch (e: any) {
       this.logger.error(`Failed to register webhook for "${dbBot.name}": ${e.message}`);
