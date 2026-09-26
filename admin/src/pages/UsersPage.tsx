@@ -50,7 +50,14 @@ export default function UsersPage() {
   const handleExportCsv = () => {
     const token = localStorage.getItem('token');
     const baseUrl = import.meta.env.VITE_API_URL || '';
-    const url = `${baseUrl}/api/admin/users/export-csv`;
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (eligibleFilter !== '') params.set('eligible', eligibleFilter);
+    if (brandFilter) params.set('brandId', brandFilter);
+    if (minVouchers !== '') params.set('minVouchers', minVouchers);
+    if (maxVouchers !== '') params.set('maxVouchers', maxVouchers);
+    const query = params.toString();
+    const url = `${baseUrl}/api/admin/users/export-csv${query ? `?${query}` : ''}`;
     const link = document.createElement('a');
     link.href = url;
 

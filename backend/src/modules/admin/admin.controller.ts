@@ -62,8 +62,25 @@ export class AdminController {
   }
 
   @Get('users/export-csv')
-  async exportUsersCsv(@Res() res: Response) {
-    const allUsers = await this.usersService.findAll({ page: 1, limit: 100000 });
+  async exportUsersCsv(
+    @Res() res: Response,
+    @Query('search') search?: string,
+    @Query('eligible') eligible?: boolean,
+    @Query('campaignId') campaignId?: number,
+    @Query('brandId') brandId?: number,
+    @Query('minVouchers') minVouchers?: number,
+    @Query('maxVouchers') maxVouchers?: number,
+  ) {
+    const allUsers = await this.usersService.findAll({
+      page: 1,
+      limit: 100000,
+      search,
+      eligible,
+      campaignId,
+      brandId,
+      minVouchers,
+      maxVouchers,
+    });
 
     const BOM = '\uFEFF';
     const header = 'ID;Имя;Телефон;Chat ID;Кодов;Брендов;Участвует;Дата регистрации';
